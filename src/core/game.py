@@ -30,6 +30,7 @@ from src.algorithms.data_science.gradient_descent import gradient_descent
 from src.algorithms.full.ida_star import IDAStar
 
 import time
+import tracemalloc
 
 class Game:
     def __init__(self):
@@ -115,6 +116,9 @@ class Game:
         status = ""
         path_actions = []
         
+        tracemalloc.start()
+        start_time = time.time()
+        
         if key_code == pygame.K_1:
             print("[AI INFO] Kích hoạt Simple Hill Climbing")
             _, path_actions, _, _, _, status = simple_hill_climbing(initial_state, get_neighbors, get_heuristic, max_steps=10000)
@@ -148,13 +152,24 @@ class Game:
             solver = IDAStar(self.level.grid, targets, max_time_seconds=120)
             path_actions, _, _, status = solver.solve(initial_state, adapter)
         
+        end_time = time.time()
+        _, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        
+        exec_time = end_time - start_time
+        peak_mb = peak / (1024 * 1024)
+        
         if "THÀNH CÔNG" in status and len(path_actions) > 0:
             print(f"\n✅ [AI REPLAY] Vừa thi triển thành công! Đã lưu lại {len(path_actions)} Bước Đi.")
+            print(f"⏱  Thời gian giải: {exec_time:.4f} giây")
+            print(f"💾 Bộ nhớ tiêu thụ: {peak_mb:.4f} MB")
             print(">>> Màn hình chuyển qua chế độ Replay <<<")
             self.auto_actions = path_actions
             self.state = "REPLAY_STEP"
         else:
             print(f"\n❌ [AI REPLAY] Thuật toán KHÔNG tìm được đích: {status}")
+            print(f"⏱  Thời gian giải: {exec_time:.4f} giây")
+            print(f"💾 Bộ nhớ tiêu thụ: {peak_mb:.4f} MB")
             self.state = "PLAYING"
 
     def handle_events(self):
