@@ -18,7 +18,7 @@
 
 ## Giới Thiệu
 
-**Sokoban** (倉庫番 - "Người quản kho") là trò chơi giải đố cổ điển trong đó người chơi đẩy các hộp vào đúng vị trí đích trên bản đồ lưới. Dự án này mở rộng Sokoban bằng cách tích hợp các thuật toán **Tìm kiếm Cục bộ (Local Search)** và **Tìm kiếm Toàn cục (Global Search)** từ lĩnh vực Trí Tuệ Nhân Tạo để tự động giải bài toán.
+**Sokoban** ("Người quản kho") là trò chơi giải đố cổ điển trong đó người chơi đẩy các hộp vào đúng vị trí đích trên bản đồ lưới. Dự án này mở rộng Sokoban bằng cách tích hợp các thuật toán **Tìm kiếm Cục bộ (Local Search)** và **Tìm kiếm Toàn cục (Global Search)** từ lĩnh vực Trí Tuệ Nhân Tạo để tự động giải bài toán.
 
 **Công nghệ sử dụng:**
 
