@@ -61,7 +61,7 @@ class LevelGenerator:
 
     def generate(self):
         attempts = 0
-        base_steps = max(self.steps, self.num_boxes * 400)
+        base_steps = max(self.steps, self.num_boxes * 800)
         
         while attempts < 1000:
             attempts += 1
@@ -72,8 +72,8 @@ class LevelGenerator:
             # vẫn giải được khi có những bức tường này.
             available_spots = [(x, y) for x in range(2, self.width - 2) for y in range(2, self.height - 2)]
             
-            # Giảm bớt chướng ngại vật nếu gặp khó khăn khi tạo level hợp lệ, nhưng không bỏ hẳn
-            obstacle_divisor = 15 if attempts < 100 else 30
+            # Giảm bớt chướng ngại vật để map dễ hơn
+            obstacle_divisor = 40 if attempts < 100 else 60
             num_obstacles = random.randint(1, max(1, (self.width * self.height) // obstacle_divisor))
             obstacle_spots = random.sample(available_spots, min(num_obstacles, len(available_spots)))
             for ox, oy in obstacle_spots:
@@ -98,9 +98,9 @@ class LevelGenerator:
                 player_spots = [(1, 1)] # dự phòng
             self.player = player_spots[0]
             
-            # 4. Các bước đi lùi ngẫu nhiên (Tăng số bước khi quá trình tạo level gặp khó khăn)
+            # 4. Các bước đi lùi ngẫu nhiên (Tăng số bước nhiều hơn để kéo hộp ra xa nhau, dễ chơi hơn)
             directions = [UP, DOWN, LEFT, RIGHT]
-            current_steps = base_steps + (attempts * 100)
+            current_steps = base_steps + (attempts * 200)
             
             for _ in range(current_steps):
                 random.shuffle(directions)

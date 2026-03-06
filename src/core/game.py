@@ -18,16 +18,16 @@ from src.ui.hud import HUD
 from src.map.load_map import MapExporter
 from src.algorithms.solver_adapter import SolverAdapter
 
-from src.algorithms.simple_hill_climbing import simple_hill_climbing
-from src.algorithms.steepest_ascent import steepest_ascent_hill_climbing
-from src.algorithms.stochastic_hill_climbing import stochastic_hill_climbing
-from src.algorithms.random_restart import random_restart_hill_climbing
-from src.algorithms.simulated_annealing import simulated_annealing
-from src.algorithms.tabu_search import tabu_search
-from src.algorithms.local_beam_search import local_beam_search
-from src.algorithms.stochastic_beam_search import stochastic_beam_search
-from src.algorithms.gradient_descent import gradient_descent
-from src.algorithms.nangcao.asao import a_star_search
+from src.algorithms.basic.simple_hill_climbing import simple_hill_climbing
+from src.algorithms.basic.steepest_ascent import steepest_ascent_hill_climbing
+from src.algorithms.basic.stochastic_hill_climbing import stochastic_hill_climbing
+from src.algorithms.advanced.random_restart import random_restart_hill_climbing
+from src.algorithms.advanced.simulated_annealing import simulated_annealing
+from src.algorithms.advanced.tabu_search import tabu_search
+from src.algorithms.parallel.local_beam_search import local_beam_search
+from src.algorithms.parallel.stochastic_beam_search import stochastic_beam_search
+from src.algorithms.data_science.gradient_descent import gradient_descent
+from src.algorithms.full.ida_star import IDAStar
 
 import time
 
@@ -143,8 +143,10 @@ class Game:
             print("[AI INFO] Kích hoạt Gradient Descent")
             _, path_actions, _, _, _, status = gradient_descent(initial_state, get_neighbors, get_heuristic, max_steps=2000)
         elif key_code == pygame.K_0:
-            print("[AI INFO] Kích hoạt A* Search (Global)")
-            _, path_actions, _, _, status = a_star_search(initial_state, get_neighbors, get_heuristic, max_nodes=100000)
+            print("[AI INFO] Kích hoạt IDA* (Full Solver - Map Khó Nhất) - Chờ đợi...")
+            targets = adapter.get_targets()
+            solver = IDAStar(self.level.grid, targets, max_time_seconds=120)
+            path_actions, _, _, status = solver.solve(initial_state, adapter)
         
         if "THÀNH CÔNG" in status and len(path_actions) > 0:
             print(f"\n✅ [AI REPLAY] Vừa thi triển thành công! Đã lưu lại {len(path_actions)} Bước Đi.")
@@ -411,7 +413,7 @@ class Game:
                 "7. Local Beam Search",
                 "8. Stochastic Beam Search",
                 "9. Gradient Descent",
-                "0. A* Search (Global - Shortest Path)",
+                "0. IDA* (Full Solver - Map Phức Tạp)",
                 " ",
                 "[ESC] Rời khỏi Menu AI"
             ]

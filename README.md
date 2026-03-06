@@ -103,7 +103,7 @@ python main.py
 | **7** | Local Beam Search |
 | **8** | Stochastic Beam Search |
 | **9** | Gradient Descent |
-| **0** | A* Search (Tìm đường ngắn nhất) |
+| **0** | IDA* Full Solver (Tìm đường ngắn nhất) |
 | **ESC** | Thoát menu AI |
 
 ### Chế Độ Replay (sau khi AI giải thành công)
@@ -135,36 +135,61 @@ python main.py
 
 | # | Thuật toán | Đặc điểm |
 |---|-----------|----------|
-| 0 | **A\* Search** | Đảm bảo tìm đường ngắn nhất (nếu tồn tại) |
+| 0 | **IDA\* Search** | Đảm bảo tìm đường bằng Iterative Deepening A* |
 
 ---
 
-## Hàm Heuristic
+## Hàm Heuristic & Kỹ Thuật Tối Ưu
 
-Công thức tổ hợp 4 yếu tố:
+### Hệ Thống Tìm Kiếm Cục Bộ (Hill Climbing variants)
+
+Công thức tổ hợp các yếu tố trong hàm Heuristic:
 
 ```
-H_total = (W1 × H_Manhattan) + (W2 × H_Push) + (W3 × P_Deadlock) + (W4 × P_Goal)
+H(S) = Wt × H_Transport  +  Wa × H_Approach  +  Wp × H_Penalty  +  H_Unplaced
 ```
 
 | Yếu tố | Ý nghĩa | Trọng số |
 |---------|---------|----------|
-| **H_Manhattan** | Tổng khoảng cách Manhattan từ hộp → đích | W1 = 2.0 |
-| **H_Push** | Khoảng cách người chơi → vị trí đẩy tối ưu | W2 = 0.5 |
-| **P_Deadlock** | Phạt vô cực (∞) nếu rơi vào thế kẹt | W3 = ∞ |
-| **P_Goal** | Thưởng khi hộp vào đích khó (góc/biên) | W4 = -1.5 |
+| **H_Transport** | Chi phí vận chuyển (Ghép cặp tối ưu Thùng → Đích qua thuật toán Hungarian + BFS Distances) | Wt = 1.0 |
+| **H_Approach** | Chi phí tiếp cận (Khoảng cách tính từ Player → Vị trí đẩy của thùng gần nhất) | Wa = 0.1 |
+| **H_Penalty** | Điểm phạt Rủi ro (Dính chùm 2x2: +100, Sát tường đơn thuần: +10, Kẹt góc chết: ∞) | Wp = 1000.0 |
+| **H_Unplaced** | Phạt thêm mỗi thùng KHÔNG ở đích (Tránh việc AI có xu hướng đẩy thùng đã vào đích ra ngoài lại) | +1000/thùng |
 
-### Phát Hiện Deadlock (3 lớp)
+### Hệ Thống Tìm Kiếm Toàn Cục (IDA* Engine)
 
-1. **Static Dead Zone** — Reverse BFS xác định vùng chết tĩnh (chạy 1 lần)
-2. **Frozen Deadlock** — Phát hiện hộp bị đóng băng (kẹt 2 trục)
-3. **Corral Deadlock** — Flood Fill kiểm tra người chơi bị nhốt
+Để thuật toán IDA* đảm bảo luôn tìm được lời giải tối ưu (shortest path), hệ thống sử dụng Heuristic tổng hợp Admissible, trả về kết quả MAX để cắt được nhiều nhánh nhất có thể:
 
-### Ưu Tiên Mục Tiêu (Goal Ordering)
+```
+H(s) = max( Manhattan × 1.0,  Hungarian+BFS × 1.5,  Per-goal BFS × 2.0 )
+```
 
-- Đích trong **góc** (2 tường vuông góc) → priority **2.0**
-- Đích trên **biên** bản đồ → priority **1.5**
-- Đích **bình thường** → priority **1.0**
+---
+
+## Hệ Thống Phát Hiện Deadlock (Cắt tỉa nhánh)
+
+Tối ưu tốc độ duyệt cây tìm kiếm bằng cơ chế nhận diện mọi trạng thái bế tắc:
+
+### Cho Hệ Thống Cục Bộ (Kiểm tra O(1) & Khối 2x2)
+
+1. **Ô Tử Thần Tĩnh (Static Dead Zone)** — Tính trước 1 lần:
+   - Góc tường chết (Corner Deadlock)
+   - Vùng quét cạnh (Edge Deadlocks qua Reverse BFS)
+2. **Khối Kẹt Vuông (Square 2x2 Deadlock)** — Phát hiện ngay lập tức 4 ô vuông kín tường/thùng (nhưng không chứa đích) sẽ không thể phá vỡ.
+
+### Cho Máy Giải Toàn Cục IDA* (5 Lớp Nâng Cao)
+
+_**Pha 1: Tĩnh (Tính 1 lần)**_
+
+1. Góc tường chết (Corner Deadlock)
+2. Hành lang cụt (Dead-end Corridors)
+3. Vùng bị cô lập (Isolated Zones)
+
+_**Pha 2: Động (Kiểm tra liên tục lúc Runtime)**_
+4. Kẹt tương hỗ (Mutual Pair Deadlock) - 2 thùng kề nhau sát tường
+5. Bị đóng băng (Freeze Deadlock) - Bị vây kín ≥ 3 mặt
+6. Hành lang hẹp (Tunnel Deadlock) - Bị tắc trên đoạn hẹp 1 ô
+7. Bị bủa vây (Corral Deadlock) - Dùng Flood Fill kiểm tra người chơi bị nhốt vòng trong thùng.
 
 ---
 
@@ -183,20 +208,28 @@ sokoban/
 │
 └── src/                       # Mã nguồn chính
     ├── algorithms/            # Thuật toán AI
+    │   ├── advanced/          # Nhóm thuật toán nâng cao
+    │   │   ├── random_restart.py
+    │   │   ├── simulated_annealing.py
+    │   │   └── tabu_search.py
+    │   ├── basic/             # Nhóm thuật toán leo đồi cơ bản (Hill Climbing)
+    │   │   ├── simple_hill_climbing.py
+    │   │   ├── steepest_ascent.py
+    │   │   └── stochastic_hill_climbing.py
+    │   ├── data_science/      # Tìm kiếm cực trị (Gradient)
+    │   │   └── gradient_descent.py
+    │   ├── full/              # Bộ giải toàn cầu (Global Solver)
+    │   │   ├── ida_star.py             # IDA* Search (Thay thế A*)
+    │   │   ├── deadlock_ida.py         # Phát hiện Deadlock chuyên sâu
+    │   │   ├── heuristic_ida.py        # Heuristic Admissible
+    │   │   ├── transposition_table.py  # Bộ nhớ đệm Transposition Table
+    │   │   └── zobrist.py              # Zobrist Hashing
+    │   ├── parallel/          # Các thuật toán kết hợp chùm (Beam Search)
+    │   │   ├── local_beam_search.py
+    │   │   └── stochastic_beam_search.py
     │   ├── heuristic.py       # Hàm đánh giá Heuristic (4 yếu tố)
     │   ├── deadlock.py        # Phát hiện Deadlock (3 lớp)
-    │   ├── solver_adapter.py  # Bộ chuyển đổi Level → State cho AI
-    │   ├── simple_hill_climbing.py
-    │   ├── steepest_ascent.py
-    │   ├── stochastic_hill_climbing.py
-    │   ├── random_restart.py
-    │   ├── simulated_annealing.py
-    │   ├── tabu_search.py
-    │   ├── local_beam_search.py
-    │   ├── stochastic_beam_search.py
-    │   ├── gradient_descent.py
-    │   └── nangcao/
-    │       └── asao.py        # A* Search (Global Search)
+    │   └── solver_adapter.py  # Bộ chuyển đổi Level → State cho AI
     │
     ├── core/                  # Lõi game
     │   ├── game.py            # Vòng lặp chính, xử lý sự kiện, render
@@ -204,28 +237,29 @@ sokoban/
     │   ├── level_generator.py # Sinh bản đồ ngẫu nhiên
     │   └── grid.py            # Lưới ô vuông (tường, sàn, đích)
     │
+    ├── data/                  # Dữ liệu hằng
+    │   └── random_config.py   # Cấu hình tính điểm Map động
+    │
     ├── entities/              # Thực thể game
     │   ├── player.py          # Nhân vật người chơi
     │   └── box.py             # Hộp (thùng)
     │
     ├── systems/               # Hệ thống xử lý
-    │   ├── movement.py        # Di chuyển & đẩy hộp
-    │   ├── undo.py            # Hệ thống Undo (snapshot)
-    │   ├── reverse_move.py    # Hệ thống Reverse Move (tua ngược)
+    │   ├── movement.py        # Di chuyển với nội suy
+    │   ├── undo.py            # Hệ thống Undo (snapshot bộ nhớ)
+    │   ├── reverse_move.py    # Kéo ngược trạng thái hộp
     │   └── win_condition.py   # Kiểm tra điều kiện thắng
     │
-    ├── ui/                    # Giao diện
+    ├── ui/                    # Giao diện Đồ họa
     │   ├── menu.py            # Menu chính
-    │   └── hud.py             # Thanh công cụ trong game
+    │   └── hud.py             # Thanh thông số game
     │
     ├── map/                   # Bản đồ
-    │   ├── map.txt            # Bản đồ hiện tại
-    │   ├── map_default.txt    # Bản đồ mặc định
-    │   └── load_map.py        # Export bản đồ ra file
+    │   └── load_map.py        # Tải map từ file văn bản (.txt)
     │
-    └── utils/                 # Tiện ích
-        ├── constants.py       # Hằng số (màu, hướng, ký tự bản đồ)
-        └── loader.py          # Tải tài nguyên (ảnh, âm thanh)
+    └── utils/                 # Tiện ích hệ thống
+        ├── constants.py       # Cấu hình trạng thái màu, độ lớn KH
+        └── loader.py          # Nạp ảnh tĩnh và Cache Memory Game
 ```
 
 ### Ký Hiệu Bản Đồ
@@ -243,7 +277,7 @@ sokoban/
 
 ---
 
-## 👨‍💻 Tác Giả
+## 👨💻 Tác Giả
 
 **Hà Mạnh Trường** — Đồ án môn **Trí Tuệ Nhân Tạo**
 

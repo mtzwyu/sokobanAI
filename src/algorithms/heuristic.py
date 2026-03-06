@@ -1,144 +1,177 @@
+from collections import deque
+import numpy as np
+from scipy.optimize import linear_sum_assignment
 from src.algorithms.deadlock import check_global_deadlock
 
 # ==============================================================================
-# CÔNG THỨC TỔ HỢP HEURISTIC 4 YẾU TỐ - SOKOBAN AI
-# H_total = (W1 × H_Manhattan) + (W2 × H_Push) + (W3 × P_Deadlock) + (W4 × P_Goal)
+# HEURISTIC TỐI ƯU - SOKOBAN AI
+#
+# H(S) = Wt * Σ dist(Bi, T_σ(i))   [Chi phí Vận chuyển - BFS + Hungarian]
+#       + Wa * min_j(dist(P, Bj)-1) [Chi phí Tiếp cận  - Khoảng cách đến chỗ đẩy]
+#       + Wp * Σ Penalty(k)          [Điểm phạt Rủi ro  - Tổng hợp các thế nguy hiểm]
+#
+# Bộ tham số khuyến nghị:
+#   Wt = 1.0     → Yếu tố chính: đưa thùng về đích.
+#   Wa = 0.1     → Yếu tố phụ: định hướng người chơi, không lấn át H1.
+#   Wp = 1000.0  → Yếu tố sống còn: phạt cực nặng để AI sợ deadlock.
+#
+# Penalty(k) per box:
+#   ∞    → Kẹt góc chết (Deadlock toàn cục)
+#   100  → Dính chùm 2x2 (Frozen)
+#   10   → Sát tường mà không ở đích
+#   0    → An toàn
 # ==============================================================================
 
-# Trọng số điều chỉnh (Tuning Weights)
-W1 = 2.0    # Trọng số khoảng cách Manhattan (Hộp → Đích)
-W2 = 0.5    # Trọng số vị trí đẩy tối ưu (Người → Push Pos)
-W3 = 1000.0 # Hình phạt Deadlock (cực lớn để AI tránh xa)
-W4 = -1.5   # Điểm thưởng (âm = tốt) khi đưa hộp vào đích ưu tiên/khó
+Wt    = 1.0
+Wa    = 0.1
+Wp    = 1000.0
+W_done = 1000.0  # Phạt mỗi thùng CHƯA vào đích → ngăn AI đẩy thùng ra khỏi đích
 
 def manhattan_distance(pos1, pos2):
     return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
-def compute_target_priority(target, grid):
-    """Tính trọng số ưu tiên cho một đích.
-    - Đích trong góc (2 tường kề vuông góc) → 2.0 (khó nhất, lấp trước).
-    - Đích ở biên bản đồ → 1.5.
-    - Đích bình thường → 1.0.
-    """
-    x, y = target
-    walls = [grid.is_wall(x + dx, y + dy) for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]]
-    # Góc: 2 tường kề vuông góc nhau
-    if (walls[0] and walls[2]) or (walls[0] and walls[3]) or (walls[1] and walls[2]) or (walls[1] and walls[3]):
-        return 2.0
-    # Biên bản đồ
-    if x == 0 or y == 0 or x == grid.width - 1 or y == grid.height - 1:
-        return 1.5
-    return 1.0
+# ------------------------------------------------------------------------------
+# BƯỚC 1: Xây dựng "Bản đồ khoảng cách" (Distance Map) - Tính 1 lần mỗi màn
+# BFS multi-source từ tất cả Đích → dist_map[(x,y)] = khoảng cách đến đích gần nhất
+# ------------------------------------------------------------------------------
 
-def calculate_heuristic(state, targets, grid, dead_zones=None):
+def build_dist_map(grid, targets):
     """
-    Công thức Tổ hợp 4 Yếu tố:
-    H_total = (W1 × H_Manhattan) + (W2 × H_Push) + (W3 × P_Deadlock) + (W4 × P_Goal)
-
-    1. H_Manhattan: Tổng khoảng cách các thùng chưa giải đến đích (Cơ bản).
-    2. H_Push:      Khoảng cách người chơi đến vị trí đẩy tối ưu (Optimal Push Pos).
-    3. P_Deadlock:  Điểm phạt cực lớn (∞) nếu rơi vào thế kẹt.
-    4. P_Goal:      Điểm thưởng (âm) khi đưa hộp vào đích ưu tiên (góc/biên/khó).
+    BFS đa nguồn từ các Đích. dist_map[pos] = số bước thực tế (né tường) 
+    để đưa thùng tại pos về đích gần nhất.
     """
+    dist_map = {}
+    queue = deque()
+    for t in targets:
+        dist_map[t] = 0
+        queue.append(t)
 
-    # ===================== YẾU TỐ 3: P_Deadlock =====================
-    # Nếu trạng thái bị kẹt cứng → trả về vô cực ngay
+    while queue:
+        x, y = queue.popleft()
+        cur_d = dist_map[(x, y)]
+        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            nx, ny = x + dx, y + dy
+            if (nx, ny) not in dist_map:
+                if not grid.is_wall(nx, ny) and not grid.is_outside(nx, ny):
+                    dist_map[(nx, ny)] = cur_d + 1
+                    queue.append((nx, ny))
+    return dist_map
+
+# ------------------------------------------------------------------------------
+# BƯỚC 2: H1 - Chi phí Vận chuyển (Transport Cost) - Hungarian Algorithm
+# Σ dist(Bi, T_σ(i)) — Phân công tối ưu Thùng → Đích bằng Hungarian
+# ------------------------------------------------------------------------------
+
+def calc_h1(unplaced_boxes, unmatched_goals, dist_map):
+    if not unplaced_boxes or not unmatched_goals:
+        return 0
+
+    n, m = len(unplaced_boxes), len(unmatched_goals)
+    cost_matrix = np.zeros((n, m))
+    for i, b in enumerate(unplaced_boxes):
+        for j, g in enumerate(unmatched_goals):
+            # Dùng dist_map (BFS thực tế), fallback về Manhattan nếu ô không đến được
+            cost_matrix[i][j] = dist_map.get(b, manhattan_distance(b, g))
+
+    box_idx, goal_idx = linear_sum_assignment(cost_matrix)
+    return float(cost_matrix[box_idx, goal_idx].sum())
+
+# ------------------------------------------------------------------------------
+# BƯỚC 3: H2 - Chi phí Tiếp cận (Accessibility Cost)
+# min_j( dist(P, Bj) - 1 ) — Khoảng cách từ Player đến vị trí đẩy của thùng gần nhất
+# (Trừ 1 vì người chơi cần đứng CẠNH thùng, không đứng TRÙNG thùng)
+# ------------------------------------------------------------------------------
+
+def calc_h2(player_pos, unplaced_boxes):
+    if not unplaced_boxes:
+        return 0
+    # dist(P, Bj) - 1: khoảng cách đến ngay cạnh thùng (vị trí sẽ đứng để đẩy)
+    return max(0, min(manhattan_distance(player_pos, b) - 1 for b in unplaced_boxes))
+
+# ------------------------------------------------------------------------------
+# BƯỚC 4: H3 - Điểm phạt Rủi ro (Penalty Score)
+# Penalty(k) per box (chưa ở đích):
+#   ∞   → Kẹt góc chết (2 hướng vuông góc bị tường chặn)
+#   100 → Dính khối 2×2 (2 thùng cạnh nhau tạo cụm nguy hiểm)
+#   10  → Sát tường đơn thuần
+# ------------------------------------------------------------------------------
+
+def calc_h3(state, grid, targets):
+    penalty = 0.0
+    boxes = state.boxes
+
+    for box in boxes:
+        if box in targets:
+            continue  # An toàn, bỏ qua
+        
+        x, y = box
+
+        up    = grid.is_wall(x, y-1) or grid.is_outside(x, y-1)
+        down  = grid.is_wall(x, y+1) or grid.is_outside(x, y+1)
+        left  = grid.is_wall(x-1, y) or grid.is_outside(x-1, y)
+        right = grid.is_wall(x+1, y) or grid.is_outside(x+1, y)
+
+        # Góc chết (∞ → trả infinity, hàm cha sẽ bắt)
+        if (up and left) or (up and right) or (down and left) or (down and right):
+            return float('inf')
+
+        # Dính chùm 2x2 (+100)
+        has_cluster = False
+        for other in boxes:
+            if other != box and other not in targets:
+                if abs(other[0] - x) + abs(other[1] - y) == 1:
+                    has_cluster = True
+                    break
+        if has_cluster:
+            penalty += 100
+            continue  # Đã phạt 100, bỏ qua kiểm tra sát tường
+
+        # Sát tường đơn thuần (+10)
+        if up or down or left or right:
+            penalty += 10
+
+    return penalty
+
+# ==============================================================================
+# HÀM TỔNG HỢP CHÍNH
+# ==============================================================================
+
+def calculate_heuristic(state, targets, grid, dead_zones=None, dist_map=None):
+    """
+    H(S) = Wt × H1  +  Wa × H2  +  Wp × H3
+
+    Chiến thắng khi H(S) = 0 (tất cả thùng đã về đích, không còn rủi ro).
+    """
+    # --- Deadlock tuyệt đối (check_global_deadlock: góc chết tĩnh + 2x2 động) ---
     if check_global_deadlock(state, grid, targets, dead_zones):
         return float('inf'), float('inf'), float('inf')
 
-    # ===================== PHÂN LOẠI HỘP =====================
-    box_positions = list(state.boxes)
-    available_targets = targets.copy()
-    unsolved_boxes = []
-    solved_boxes = []  # Hộp đã nằm trên đích
+    # --- Phân loại Thùng và Đích chưa khớp ---
+    unplaced_boxes  = [b for b in state.boxes if b not in targets]
+    unmatched_goals = [g for g in targets if g not in state.boxes]
 
-    target_priorities = {t: compute_target_priority(t, grid) for t in available_targets}
+    # --- BFS dist_map fallback nếu không được truyền vào ---
+    if dist_map is None:
+        dist_map = build_dist_map(grid, targets)
 
-    for box_pos in box_positions:
-        if box_pos in available_targets:
-            solved_boxes.append(box_pos)
-            available_targets.remove(box_pos)
-        else:
-            unsolved_boxes.append(box_pos)
+    # --- H1: Transport Cost (Hungarian + BFS) ---
+    h1 = calc_h1(unplaced_boxes, unmatched_goals, dist_map)
 
-    # ===================== YẾU TỐ 1: H_Manhattan =====================
-    # Tổng khoảng cách Manhattan từ mỗi hộp chưa giải đến đích tốt nhất
-    # Dùng weighted matching: ưu tiên gán hộp vào đích khó (priority cao) trước
-    h_manhattan = 0
-    box_goal_pairs = []
-    for box_pos in unsolved_boxes:
-        if available_targets:
-            best_target_idx = None
-            best_weighted = None
-            for i, tgt in enumerate(available_targets):
-                dist = manhattan_distance(box_pos, tgt)
-                priority = target_priorities.get(tgt, 1.0)
-                weighted = dist / priority  # Ưu tiên đích có priority cao
-                if best_weighted is None or weighted < best_weighted:
-                    best_weighted = weighted
-                    best_target_idx = i
-            chosen_target = available_targets[best_target_idx]
-            h_manhattan += manhattan_distance(box_pos, chosen_target)
-            box_goal_pairs.append((box_pos, chosen_target))
-            del target_priorities[chosen_target]
-            available_targets.pop(best_target_idx)
+    # --- H2: Accessibility Cost (Player → vị trí đẩy gần nhất) ---
+    h2 = calc_h2(state.player_pos, unplaced_boxes)
 
-    # ===================== YẾU TỐ 2: H_Push =====================
-    # Khoảng cách người chơi đến vị trí đẩy tối ưu (Optimal_Push_Pos)
-    # PushPos = (Box_x - dx, Box_y - dy) với (dx, dy) là hướng từ Box đến Goal
-    h_push = 0
-    if box_goal_pairs:
-        min_push_dist = float('inf')
-        for box_pos, goal_pos in box_goal_pairs:
-            bx, by = box_pos
-            gx, gy = goal_pos
-            raw_dx = gx - bx
-            raw_dy = gy - by
-            # Chọn trục chính (delta lớn hơn) làm hướng đẩy ưu tiên
-            if abs(raw_dx) >= abs(raw_dy):
-                dx = 1 if raw_dx > 0 else (-1 if raw_dx < 0 else 0)
-                dy = 0
-            else:
-                dx = 0
-                dy = 1 if raw_dy > 0 else (-1 if raw_dy < 0 else 0)
-            push_pos = (bx - dx, by - dy)
-            dist = manhattan_distance(state.player_pos, push_pos)
-            if dist < min_push_dist:
-                min_push_dist = dist
-        h_push = min_push_dist
+    # --- H3: Penalty Score (Góc chết, Dính chùm, Sát tường) ---
+    h3 = calc_h3(state, grid, targets)
 
-    # ===================== YẾU TỐ 4: P_Goal =====================
-    # Điểm thưởng cho mỗi hộp đã vào đúng đích (khuyến khích AI giữ hộp ở đích khó)
-    # CHỈ dùng làm tiebreaker, KHÔNG cho phép triệt tiêu H_Manhattan
-    p_goal = 0
-    for box_pos in solved_boxes:
-        priority = compute_target_priority(box_pos, grid)
-        p_goal += priority
+    if h3 == float('inf'):
+        return float('inf'), float('inf'), float('inf')
 
-    # ===================== TỔNG HỢP =====================
-    # Nếu KHÔNG còn hộp chưa giải → đích đã đạt (h = 0)
-    if len(unsolved_boxes) == 0:
-        return 0.0, 0.0, 0.0
+    # --- H4: Phạt thùng chưa vào đích (Bảo vệ thùng đã an toàn) ---
+    # Mỗi thùng chưa ở đích bị phạt W_done.
+    # → Nếu AI đẩy thùng ra khỏi đích, số unplaced_boxes tăng 1 → H tăng W_done ngay
+    h4 = W_done * len(unplaced_boxes)
 
-    # H_total = (W1 × H_Manhattan) + (W2 × H_Push) + (W4 × P_Goal)
-    # P_Goal chỉ là tiebreaker: giới hạn thưởng tối đa = 30% H_Manhattan
-    manhattan_base = W1 * h_manhattan
-    push_component = W2 * h_push
-    goal_bonus = W4 * p_goal  # Giá trị âm (thưởng)
-    
-    # Giới hạn: thưởng không vượt quá 30% chi phí Manhattan
-    max_bonus = -0.3 * manhattan_base
-    if goal_bonus < max_bonus:
-        goal_bonus = max_bonus
+    # --- Tổng hợp theo công thức ---
+    h_total = (Wt * h1) + (Wa * h2) + (Wp * h3) + h4
 
-    h_total = manhattan_base + push_component + goal_bonus
-    
-    # An toàn: h_total phải > 0 khi còn hộp chưa giải
-    if h_total <= 0:
-        h_total = 0.1
-
-    # Trả về: (tổng điểm, chi phí thùng, chi phí người)
-    box_component = manhattan_base + goal_bonus
-    player_component = push_component
-
-    return h_total, box_component, player_component
+    return float(h_total), float(h1), float(h2)

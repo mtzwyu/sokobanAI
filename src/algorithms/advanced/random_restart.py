@@ -1,5 +1,5 @@
 import time
-from src.algorithms.stochastic_hill_climbing import stochastic_hill_climbing
+from src.algorithms.basic.stochastic_hill_climbing import stochastic_hill_climbing
 
 # ==============================================================================
 # AI SOKOBAN: RANDOM-RESTART HILL CLIMBING

@@ -66,10 +66,11 @@ class SolverAdapter:
         from src.algorithms.deadlock import build_dead_zones
         dead_zones = build_dead_zones(self.grid, targets)
         
-        # Load hàm Heuristic kết hợp Check Deadlock Siêu chuẩn
-        from src.algorithms.heuristic import calculate_heuristic
+        # Tiền xử lý Bản đồ khoảng cách BFS (1 lần duy nhất mỗi màn)
+        from src.algorithms.heuristic import calculate_heuristic, build_dist_map
+        dist_map = build_dist_map(self.grid, targets)
         
         def heuristic(state):
-            return calculate_heuristic(state, targets, self.grid, dead_zones)
+            return calculate_heuristic(state, targets, self.grid, dead_zones, dist_map)
             
         return heuristic
