@@ -219,7 +219,7 @@ sokoban/
     │   ├── data_science/      # Tìm kiếm cực trị (Gradient)
     │   │   └── gradient_descent.py
     │   ├── full/              # Bộ giải toàn cầu (Global Solver)
-    │   │   ├── ida_star.py             # IDA* Search (Thay thế A*)
+    │   │   ├── ida_star.py             # IDA* Search
     │   │   ├── deadlock_ida.py         # Phát hiện Deadlock chuyên sâu
     │   │   ├── heuristic_ida.py        # Heuristic Admissible
     │   │   ├── transposition_table.py  # Bộ nhớ đệm Transposition Table
@@ -255,7 +255,10 @@ sokoban/
     │   └── hud.py             # Thanh thông số game
     │
     ├── map/                   # Bản đồ
-    │   └── load_map.py        # Tải map từ file văn bản (.txt)
+    │   ├── load_map.py        # Tải map từ file văn bản (.txt)
+    │   ├── map.txt            # Bản đồ mặc định
+    │   ├── map_3box.txt       # Bản đồ 3 hộp
+    │   └── map_default.txt    # Bản đồ gốc
     │
     └── utils/                 # Tiện ích hệ thống
         ├── constants.py       # Cấu hình trạng thái màu, độ lớn KH
