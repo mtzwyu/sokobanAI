@@ -17,7 +17,30 @@ class Level:
             print(f"Level file not found: {filepath}")
             return False
 
-        with open(filepath, 'r') as f:
+        if filepath.endswith(('.xlsx', '.xls')):
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(filepath, data_only=True)
+                sheet = wb.active
+                lines = []
+                max_col = sheet.max_column
+                for row in range(1, sheet.max_row + 1):
+                    line_chars = []
+                    for col in range(1, max_col + 1):
+                        val = sheet.cell(row=row, column=col).value
+                        if val is None:
+                            line_chars.append(' ')
+                        else:
+                            text = str(val).strip()
+                            char = text[0] if text else ' '
+                            line_chars.append(char)
+                    lines.append(''.join(line_chars).rstrip())
+                return self.load_from_lines(lines)
+            except Exception as e:
+                print(f"[LỖI] Không thể đọc map từ Excel: {e}")
+                return False
+                
+        with open(filepath, 'r', encoding='utf-8') as f:
             lines = f.readlines()
 
         return self.load_from_lines(lines)
@@ -26,14 +49,20 @@ class Level:
         self.boxes = []
         self.player = None
         
-        cleaned_lines = [line.strip('\n') for line in lines]
+        cleaned_lines = [line.rstrip('\n\r') for line in lines]
+        
+        # Xoá các dòng hoàn toàn rỗng ở cuối (do Excel hay quét dư max_row)
+        while cleaned_lines and not cleaned_lines[-1].strip():
+            cleaned_lines.pop()
+            
         self.height = len(cleaned_lines)
         if self.height == 0:
             return False
             
         self.width = max(len(line) for line in cleaned_lines)
         
-        grid_data = [[EMPTY for _ in range(self.width)] for _ in range(self.height)]
+        # Sửa lỗi vẽ sàn tràn lan: Default pad bằng OUTSIDE thay vì EMPTY
+        grid_data = [[OUTSIDE for _ in range(self.width)] for _ in range(self.height)]
 
         for y, line in enumerate(cleaned_lines):
             for x, char in enumerate(line):

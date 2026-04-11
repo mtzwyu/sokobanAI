@@ -16,21 +16,106 @@ from src.systems.win_condition import WinCondition
 from src.ui.menu import MainMenu
 from src.ui.hud import HUD
 from src.map.load_map import MapExporter
-from src.algorithms.solver_adapter import SolverAdapter
-
-from src.algorithms.basic.simple_hill_climbing import simple_hill_climbing
-from src.algorithms.basic.steepest_ascent import steepest_ascent_hill_climbing
-from src.algorithms.basic.stochastic_hill_climbing import stochastic_hill_climbing
-from src.algorithms.advanced.random_restart import random_restart_hill_climbing
-from src.algorithms.advanced.simulated_annealing import simulated_annealing
-from src.algorithms.advanced.tabu_search import tabu_search
-from src.algorithms.parallel.local_beam_search import local_beam_search
-from src.algorithms.parallel.stochastic_beam_search import stochastic_beam_search
-from src.algorithms.data_science.gradient_descent import gradient_descent
-from src.algorithms.full.ida_star import IDAStar
-
 import time
 import tracemalloc
+import threading
+import tkinter as tk
+
+class DebugHUDWindow(threading.Thread):
+    def __init__(self):
+        super().__init__(daemon=True)
+        self.info_data = []
+        self.current_h = None      # H của vị trí hiện tại (gửi từ game.py)
+        self.root = None
+        self.title_label = None
+        self.current_h_label = None
+        self.dir_labels = []
+        self.is_ready = False
+
+    def run(self):
+        self.root = tk.Tk()
+        self.root.title("Phân tích Heuristic - Simple Hill Climbing")
+        self.root.geometry("440x590")
+        self.root.attributes("-topmost", True)
+        self.root.configure(bg="#1E1E1E")
+
+        self.title_label = tk.Label(self.root,
+            text="PHÂN TÍCH HÀM HEURISTIC",
+            fg="#00FFFF", bg="#1E1E1E", font=("Segoe UI", 15, "bold"))
+        self.title_label.pack(pady=(12, 0))
+
+        # Dòng phụ 1: thuật toán tham chiếu
+        self.algo_label = tk.Label(self.root,
+            text="Theo thuật toán: Simple Hill Climbing",
+            fg="#00CFFF", bg="#1E1E1E", font=("Segoe UI", 11, "italic"))
+        self.algo_label.pack(pady=(2, 0))
+
+        # Dòng phụ 2: mô tả logic chọn hướng
+        self.sub_label = tk.Label(self.root,
+            text="◀ TỐI ƯU = hàng xóm ĐẦU TIÊN có H < H hiện tại",
+            fg="#888888", bg="#1E1E1E", font=("Segoe UI", 10))
+        self.sub_label.pack(pady=(2, 4))
+
+        # H hiện tại
+        self.current_h_label = tk.Label(self.root,
+            text="H hiện tại: ...",
+            fg="#FFD700", bg="#1E1E1E", font=("Segoe UI", 13, "bold"))
+        self.current_h_label.pack(pady=(0, 8))
+
+        # Tạo sắn 4 group cho 4 hướng
+        for _ in range(4):
+            frame = tk.Frame(self.root, bg="#1E1E1E")
+            frame.pack(fill=tk.X, padx=15, pady=5)
+            
+            lbl_main = tk.Label(frame, text="", fg="white", bg="#1E1E1E", font=("Segoe UI", 14, "bold"), anchor="w")
+            lbl_main.pack(fill=tk.X)
+            
+            lbl_detail = tk.Label(frame, text="", justify=tk.LEFT, fg="gray", bg="#1E1E1E", font=("Segoe UI", 12), anchor="w")
+            lbl_detail.pack(fill=tk.X, padx=15)
+            
+            self.dir_labels.append((lbl_main, lbl_detail))
+            
+        self.is_ready = True
+        self.update_loop()
+        self.root.mainloop()
+
+    def update_loop(self):
+        if getattr(self, 'title_label', None):
+            # Cập nhật dòng H hiện tại
+            cur_h = getattr(self, 'current_h', None)
+            if self.current_h_label is not None:
+                if cur_h is not None:
+                    self.current_h_label.config(text=f"H hiện tại: {cur_h}")
+                else:
+                    self.current_h_label.config(text="H hiện tại: ...")
+
+            data = getattr(self, 'info_data', [])
+            for i in range(4):
+                lbl_main, lbl_detail = self.dir_labels[i]
+                if i < len(data):
+                    item = data[i]
+                    is_min = item["is_min"]
+                    
+                    color_main = "#00FF00" if is_min else "#FFFFFF"
+                    marker = " ◀ TỐI ƯU" if is_min else ""
+                    lbl_main.config(text=f" - [{item['action']}]: H = {item['score']}{marker}", fg=color_main)
+                    
+                    detail_text = (
+                        f"      - Di chuyển (T): {item['h1']}\n"
+                        f"      - Tiếp cận (A) : {item['h2']}\n"
+                        f"      - Phạt (P)     : {item['h3']}"
+                    )
+                    
+                    detail_color = "#55FF55" if is_min else "#AAAAAA"
+                    if item["h3"] > 0:
+                        detail_color = "#FF5555"
+                        
+                    lbl_detail.config(text=detail_text, fg=detail_color)
+                else:
+                    lbl_main.config(text="")
+                    lbl_detail.config(text="")
+                    
+            self.root.after(50, self.update_loop)
 
 class Game:
     def __init__(self):
@@ -53,11 +138,12 @@ class Game:
         self.state = "MENU"
         self.sound_muted = False
         self.time_passed = 0.0
-        
-        # Biến phục vụ AI Auto Replay
-        self.auto_actions = []
-        self.replay_step_index = 0
+        self.ai_menu_active = False
+        self.ai_debug_mode = False
+        self.debug_window = None
         self.current_level_path = None
+        self.auto_play_queue = []
+        self.last_auto_move_time = 0.0
         self.menu = MainMenu(self.screen, self.asset_loader)
         self.hud = HUD(self.asset_loader, SCREEN_WIDTH)
         
@@ -101,77 +187,6 @@ class Game:
         self.asset_loader.scale_sprites(self.tile_size)
         MapExporter.export(self.level)
 
-    def run_algorithm(self, key_code):
-        print("\n" + "="*80)
-        print("ĐANG TÍNH TOÁN AI... Vui lòng chờ...")
-        print("="*80)
-        self.auto_actions = []
-        self.replay_step_index = 0
-        
-        adapter = SolverAdapter(self.level)
-        initial_state = adapter.get_initial_state()
-        get_neighbors = adapter.get_neighbors
-        get_heuristic = adapter.get_heuristic_func()
-        
-        status = ""
-        path_actions = []
-        
-        tracemalloc.start()
-        start_time = time.time()
-        
-        if key_code == pygame.K_1:
-            print("[AI INFO] Kích hoạt Simple Hill Climbing")
-            _, path_actions, _, _, _, status = simple_hill_climbing(initial_state, get_neighbors, get_heuristic, max_steps=10000)
-        elif key_code == pygame.K_2:
-            print("[AI INFO] Kích hoạt Steepest-Ascent Hill Climbing")
-            _, path_actions, _, _, _, status = steepest_ascent_hill_climbing(initial_state, get_neighbors, get_heuristic, max_steps=10000)
-        elif key_code == pygame.K_3:
-            print("[AI INFO] Kích hoạt Stochastic Hill Climbing")
-            _, path_actions, _, _, _, status = stochastic_hill_climbing(initial_state, get_neighbors, get_heuristic, max_steps=10000)
-        elif key_code == pygame.K_4:
-            print("[AI INFO] Kích hoạt Random-Restart Hill Climbing (Tối đa 10 mạng)")
-            _, path_actions, _, _, _, status = random_restart_hill_climbing(initial_state, get_neighbors, get_heuristic, max_restarts=50, max_steps_per_restart=2000)
-        elif key_code == pygame.K_5:
-            print("[AI INFO] Kích hoạt Simulated Annealing (Nhiệt 100, Nguội 0.995)")
-            _, path_actions, _, _, _, status = simulated_annealing(initial_state, get_neighbors, get_heuristic, initial_temp=100.0, cooling_rate=0.995, max_steps=5000)
-        elif key_code == pygame.K_6:
-            print("[AI INFO] Kích hoạt Tabu Search (50 lịch sử)")
-            _, path_actions, _, _, _, status = tabu_search(initial_state, get_neighbors, get_heuristic, max_steps=5000, tabu_tenure=50)
-        elif key_code == pygame.K_7:
-            print("[AI INFO] Kích hoạt Local Beam Search (K=10)")
-            _, path_actions, _, _, _, status = local_beam_search(initial_state, get_neighbors, get_heuristic, k_beam=10, max_steps=1000)
-        elif key_code == pygame.K_8:
-            print("[AI INFO] Kích hoạt Stochastic Beam Search (K=10)")
-            _, path_actions, _, _, _, status = stochastic_beam_search(initial_state, get_neighbors, get_heuristic, k_beam=10, max_steps=1000)
-        elif key_code == pygame.K_9:
-            print("[AI INFO] Kích hoạt Gradient Descent")
-            _, path_actions, _, _, _, status = gradient_descent(initial_state, get_neighbors, get_heuristic, max_steps=2000)
-        elif key_code == pygame.K_0:
-            print("[AI INFO] Kích hoạt IDA* (Full Solver - Map Khó Nhất) - Chờ đợi...")
-            targets = adapter.get_targets()
-            solver = IDAStar(self.level.grid, targets, max_time_seconds=120)
-            path_actions, _, _, status = solver.solve(initial_state, adapter)
-        
-        end_time = time.time()
-        _, peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
-        
-        exec_time = end_time - start_time
-        peak_mb = peak / (1024 * 1024)
-        
-        if "THÀNH CÔNG" in status and len(path_actions) > 0:
-            print(f"\n✅ [AI REPLAY] Vừa thi triển thành công! Đã lưu lại {len(path_actions)} Bước Đi.")
-            print(f"⏱  Thời gian giải: {exec_time:.4f} giây")
-            print(f"💾 Bộ nhớ tiêu thụ: {peak_mb:.4f} MB")
-            print(">>> Màn hình chuyển qua chế độ Replay <<<")
-            self.auto_actions = path_actions
-            self.state = "REPLAY_STEP"
-        else:
-            print(f"\n❌ [AI REPLAY] Thuật toán KHÔNG tìm được đích: {status}")
-            print(f"⏱  Thời gian giải: {exec_time:.4f} giây")
-            print(f"💾 Bộ nhớ tiêu thụ: {peak_mb:.4f} MB")
-            self.state = "PLAYING"
-
     def handle_events(self):
         if self.state == "MENU":
             action = self.menu.handle_events()
@@ -184,7 +199,7 @@ class Game:
                     pygame.mixer.music.stop()
                     
                 if mode == "Default":
-                    self.load_level("src/map/map_default.txt")
+                    self.load_level("src/map/map_default.xlsx")
                 else:
                     self.load_level()
                     
@@ -195,68 +210,39 @@ class Game:
             if event.type == pygame.QUIT:
                 return False
                 
-            if self.state == "ALGO_MENU":
+            if self.ai_menu_active:
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.state = "PLAYING"
-                        print("\nĐã thoát Menu Thuật Toán.")
-                    elif pygame.K_0 <= event.key <= pygame.K_9:
-                        self.run_algorithm(event.key)
+                    if event.key == pygame.K_1:
+                        self.ai_debug_mode = not self.ai_debug_mode
+                        if self.ai_debug_mode:
+                            if self.debug_window is None or not self.debug_window.is_alive():
+                                self.debug_window = DebugHUDWindow()
+                                self.debug_window.start()
+                        self.ai_menu_active = False
+                    elif event.key == pygame.K_2:
+                        self.ai_menu_active = False
+                        self.ai_debug_mode = False
+                        sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+                        from evaluate_algorithms import run_evaluation
+                        print("\n[AI] Bắt đầu quá trình đánh giá và xuất Excel theo Map hiện tại...")
+                        
+                        # AI Run và lấy về kết quả xịn nhất
+                        best_path = run_evaluation(self.level)
+                        if best_path:
+                            self.auto_play_queue = best_path
+                            self.last_auto_move_time = self.time_passed
+                        else:
+                            print("[AI] Thuật toán không tìm thấy nước đi nào!")
+                    elif event.key == pygame.K_3:
+                        self.ai_menu_active = False
+                        self.ai_debug_mode = False
+                        if getattr(self, 'auto_play_queue', []):
+                            print("\n[AI] HỦY BỎ: Đã dừng lệnh Tự Lái của AI.")
+                            self.auto_play_queue = []
+                    elif event.key in [pygame.K_SPACE, pygame.K_ESCAPE]:
+                        self.ai_menu_active = False
                 continue
                 
-            if self.state == "REPLAY_STEP":
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.state = "PLAYING"
-                        print("\nĐã hủy quá trình xem Replay.")
-                    elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
-                        if self.auto_actions and not self.won:
-                            action = self.auto_actions.pop(0)
-                            self.replay_step_index += 1
-                            
-                            dx, dy = 0, 0
-                            if "LÊN" in action: dy = -1
-                            elif "XUỐNG" in action: dy = 1
-                            elif "TRÁI" in action: dx = -1
-                            elif "PHẢI" in action: dx = 1
-                                
-                            moved, pushed = self.movement_system.move(dx, dy)
-                            if moved:
-                                # Ghi lại bước replay cho Reverse Move
-                                pushed_box = None
-                                if pushed:
-                                    bx = self.level.player.x + dx
-                                    by = self.level.player.y + dy
-                                    for box in self.level.boxes:
-                                        if box.x == bx and box.y == by:
-                                            pushed_box = box
-                                            break
-                                self.reverse_move.record_move(self.level.player, self.level.boxes, dx, dy, pushed_box)
-                                MapExporter.export(self.level)
-                                if not self.sound_muted:
-                                    snd = self.asset_loader.get_sound("push" if pushed else "move")
-                                    if snd: snd.play()
-                                
-                                adapter = SolverAdapter(self.level)
-                                current_state = adapter.get_initial_state()
-                                get_heuristic = adapter.get_heuristic_func()
-                                score, box_w, player_w = get_heuristic(current_state)
-                                score_str = f"{score:.1f} ({box_w:.1f}+{player_w:.1f})" if score != float('inf') else "inf"
-                                print(f"| GHI HÌNH REPLAY BƯỚC {self.replay_step_index:<3} | Heuristic: {score_str:<15} | Hành động: {action:<22} |")
-                                
-                                if self.win_condition.check_win():
-                                    self.won = True
-                                    print("\n✅ AUTO-REPLAY ĐÃ CHẠM ĐÍCH THÀNH CÔNG!")
-                                    self.state = "PLAYING"
-                                    if not self.sound_muted:
-                                        snd = self.asset_loader.get_sound("win")
-                                        if snd: snd.play()
-                        
-                        if not self.auto_actions and not self.won:
-                            print("\nPhát Hết Băng Ghi Hình. Trở về Chơi Từ Do.")
-                            self.state = "PLAYING"
-                continue
-
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.state == "PLAYING":
                 action = self.hud.handle_click(event.pos)
                 if action == 'HOME':
@@ -288,6 +274,13 @@ class Game:
                 elif event.key == pygame.K_z and (pygame.key.get_mods() & pygame.KMOD_CTRL):
                     self.undo_system.undo(self.level.player, self.level.boxes)
                     MapExporter.export(self.level)
+                elif event.key == pygame.K_SPACE:
+                    self.ai_menu_active = True
+                elif event.key == pygame.K_3:
+                    if getattr(self, 'auto_play_queue', []):
+                        print("\n[AI] HỦY BỎ: Đã dừng lệnh Tự Lái của AI & Tắt Radar.")
+                        self.auto_play_queue = []
+                    self.ai_debug_mode = False
                 elif event.key == pygame.K_r:
                     self.load_level(is_reset=True)
                 elif event.key == pygame.K_BACKSPACE:
@@ -297,11 +290,13 @@ class Game:
                         if not self.sound_muted:
                             snd = self.asset_loader.get_sound("move")
                             if snd: snd.play()
-                elif event.key == pygame.K_SPACE:
-                    self.state = "ALGO_MENU"
-                    self.auto_actions = []
                     
                 if dx != 0 or dy != 0:
+                    # Người chơi can thiệp bằng tay -> Dừng Tự Lái chặn luôn
+                    if getattr(self, 'auto_play_queue', []):
+                        print("\n[AI] KIỂM SOÁT BẰNG TAY: Đã hủy lệnh Tự Lái của AI.")
+                        self.auto_play_queue = []
+                        
                     moved, pushed = self.movement_system.move(dx, dy)
                     if moved:
                         # Ghi lại bước đi cho Reverse Move
@@ -353,6 +348,141 @@ class Game:
             
         offset_x, offset_y = self.calculate_offsets()
         
+        # Hàm con hỗ trợ Render Debug — mô phỏng Simple Hill Climbing
+        def render_ai_debug_lines():
+            import math
+            from src.algorithms.solver_adapter import SolverAdapter
+            try:
+                adapter = SolverAdapter(self.level)
+                initial_state = adapter.get_initial_state()
+                neighbors = adapter.get_neighbors(initial_state)
+                detail_h = adapter.get_detailed_heuristic_func()
+
+                if not neighbors:
+                    return
+
+                # Baseline: H không prev_boxes (giống Simple HC: current_h = get_heuristic(state))
+                current_score, _, _, _ = detail_h(initial_state)
+
+                # Bước 1: Tìm hàng xóm ĐẦU TIÊN tốt hơn (Simple HC logic)
+                simple_hc_choice = None
+                raw_results = []
+                for action, state in neighbors:
+                    # decision_score: dùng prev_boxes (Simple HC so sánh thế này)
+                    # = get_heuristic(next_state, current_state.boxes) trong Simple HC
+                    decision_score, h1, h2, h3 = detail_h(state, initial_state.boxes)
+
+                    # display_score: KHÔNG prev_boxes = H thật của state (khớp Excel)
+                    # = get_heuristic(current_state) sau khi HC chuyển sang state mới
+                    display_score, d_h1, d_h2, d_h3 = detail_h(state)
+
+                    pushed = set(state.boxes) != set(initial_state.boxes)
+
+                    # Euclidean từ vị trí player tiếp theo đến thùng gần nhất (tiebreaker)
+                    nx_p, ny_p = state.player_pos
+                    if initial_state.boxes:
+                        euclid = min(
+                            math.sqrt((nx_p - bx) ** 2 + (ny_p - by) ** 2)
+                            for bx, by in initial_state.boxes
+                        )
+                    else:
+                        euclid = 0.0
+
+                    raw_results.append({
+                        "action": action,
+                        "decision_score": decision_score,   # dùng để quyết định TỐI ƯU
+                        "display_score": display_score,     # dùng để hiển thị (khớp Excel)
+                        "h1": d_h1, "h2": d_h2, "h3": d_h3,
+                        "euclid": euclid, "state": state, "pushed": pushed
+                    })
+
+                    # Simple HC: first better (so sánh decision_score với current_score)
+                    if simple_hc_choice is None and decision_score < current_score:
+                        simple_hc_choice = action
+
+                # Sắp xếp: cấp 1 = decision_score (gồm push bonus → đúng HC)
+                #           cấp 2 = Euclidean (tiebreaker khi bằng nhau)
+                raw_results.sort(key=lambda e: (e["decision_score"], e["euclid"]))
+
+                # Đóng gói: hiển thị display_score nhưng sort/quyết định theo decision_score
+                evaluated = [
+                    (r["display_score"], r["decision_score"], r["euclid"],
+                     r["h1"], r["h2"], r["h3"], r["action"], r["state"], r["pushed"])
+
+                    for r in raw_results
+                ]
+
+                px = initial_state.player_pos[0] * self.tile_size + offset_x + self.tile_size // 2
+                py = initial_state.player_pos[1] * self.tile_size + offset_y + self.tile_size // 2
+                
+                # --- Đẩy dữ liệu ra Tkinter Window ---
+                info_data = []
+                for idx, (display_score, decision_score, euclid, h1, h2, h3, action, state, pushed) in enumerate(evaluated):
+                    # TỐI ƯU = Simple HC chọn: first neighbor có decision_score < current_score
+                    if simple_hc_choice is not None:
+                        is_min = (action == simple_hc_choice)
+                    else:
+                        is_min = (idx == 0)
+                    push_label = " ★PUSH" if pushed else ""
+                    info_data.append({
+                        "action": action + push_label,
+                        # Hiển thị display_score (không push bonus) = khớp Excel
+                        "score": round(display_score, 4) if isinstance(display_score, float) else display_score,
+                        "h1": round(h1, 1) if isinstance(h1, float) else h1,
+                        "h2": round(h2, 1) if isinstance(h2, float) else h2,
+                        "h3": round(h3, 1) if isinstance(h3, float) else h3,
+                        "is_min": is_min
+                    })
+                    
+                if self.debug_window and getattr(self.debug_window, 'is_ready', False):
+                    self.debug_window.info_data = info_data
+                    self.debug_window.current_h = round(current_score, 4) if isinstance(current_score, float) else current_score
+
+                for idx, (display_score, decision_score, euclid, h1, h2, h3, action, state, pushed) in enumerate(evaluated):
+                    if simple_hc_choice is not None:
+                        is_min = (action == simple_hc_choice)
+                    else:
+                        is_min = (idx == 0)
+
+                    dx, dy = 0, 0
+                    if action == "LÊN": dy = -1
+                    elif action == "XUỐNG": dy = 1
+                    elif action == "TRÁI": dx = -1
+                    elif action == "PHẢI": dx = 1
+                    
+                    nx = px + dx * self.tile_size
+                    ny = py + dy * self.tile_size
+                    
+                    moved_boxes = set(state.boxes) - set(initial_state.boxes)
+                    if moved_boxes:
+                        new_box_pos = moved_boxes.pop()
+                        old_bx = (new_box_pos[0] - dx) * self.tile_size + offset_x + self.tile_size // 2
+                        old_by = (new_box_pos[1] - dy) * self.tile_size + offset_y + self.tile_size // 2
+                        new_bx = new_box_pos[0] * self.tile_size + offset_x + self.tile_size // 2
+                        new_by = new_box_pos[1] * self.tile_size + offset_y + self.tile_size // 2
+                        start_pt, end_pt = (old_bx, old_by), (new_bx, new_by)
+                    else:
+                        start_pt, end_pt = (px, py), (nx, ny)
+                        
+                    line_color = (0, 255, 0) if is_min else (255, 0, 0)
+                    thickness = 2
+                    pygame.draw.line(self.screen, line_color, start_pt, end_pt, thickness)
+                    # Vẽ đầu mũi tên (arrowhead) bằng 2 đoạn ngắn
+                    import math as _m
+                    ex, ey = end_pt
+                    sx, sy = start_pt
+                    angle = _m.atan2(ey - sy, ex - sx)
+                    arr_len = 10
+                    arr_angle = 0.5
+                    for sign in (1, -1):
+                        ax = ex - arr_len * _m.cos(angle - sign * arr_angle)
+                        ay = ey - arr_len * _m.sin(angle - sign * arr_angle)
+                        pygame.draw.line(self.screen, line_color, end_pt, (int(ax), int(ay)), thickness)
+                        
+            except Exception as e:
+                print(e)
+                pass
+        
         for y in range(self.level.height):
             for x in range(self.level.width):
                 pixel_x = x * self.tile_size + offset_x
@@ -393,66 +523,30 @@ class Game:
             self.screen.blit(scaled_text, text_rect)
             
         self.hud.draw(self.screen, dt)
-        
-        if self.state == "ALGO_MENU":
+        if self.ai_debug_mode and not self.won:
+            render_ai_debug_lines()
+            
+        if self.ai_menu_active:
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-            overlay.set_alpha(240)
-            overlay.fill(BLACK)
-            self.screen.blit(overlay, (0, 0))
+            overlay.set_alpha(180)
+            overlay.fill((0, 0, 0))
+            self.screen.blit(overlay, (0,0))
             
-            # Tìm font hỗ trợ tiếng Việt từ Windows Fonts
-            viet_font_candidates = [
-                r"C:\Windows\Fonts\arial.ttf",
-                r"C:\Windows\Fonts\verdana.ttf",
-                r"C:\Windows\Fonts\tahoma.ttf",
-                r"C:\Windows\Fonts\segoeui.ttf",
-            ]
-            font_path = next((p for p in viet_font_candidates if os.path.exists(p)), None)
-            if font_path:
-                font_title = pygame.font.Font(font_path, 40)
-                font_item = pygame.font.Font(font_path, 26)
-            else:
-                font_title = pygame.font.Font(None, 48)
-                font_item = pygame.font.Font(None, 36)
+            font_title = pygame.font.SysFont("tahoma", 42, bold=True)
+            font_opt = pygame.font.SysFont("tahoma", 26, bold=True)
             
-            title = font_title.render("DANH SÁCH THUẬT TOÁN AI", True, (255, 255, 0))
-            self.screen.blit(title, (50, 40))
+            title = font_title.render("HỆ THỐNG AI CHO SOKOBAN", True, (255, 255, 255))
+            opt1 = font_opt.render("[1] Phân tích Heuristic theo Simple Hill Climbing", True, (0, 255, 0))
+            opt2 = font_opt.render("[2] Chạy ngầm 8 Thuật toán và Tự Lái (Auto Drive)", True, (255, 255, 0))
+            opt3 = font_opt.render("[3] Hủy Tự Lái & Tắt tia Laser", True, (255, 100, 100))
+            opt4 = font_opt.render("[SPACE/ESC] Đóng menu", True, (150, 150, 150))
             
-            algos = [
-                "1. Simple Hill Climbing",
-                "2. Steepest-Ascent Hill Climbing",
-                "3. Stochastic Hill Climbing",
-                "4. Random-Restart Hill Climbing",
-                "5. Simulated Annealing",
-                "6. Tabu Search",
-                "7. Local Beam Search",
-                "8. Stochastic Beam Search",
-                "9. Gradient Descent",
-                "0. IDA* (Full Solver - Map Phức Tạp)",
-                " ",
-                "[ESC] Rời khỏi Menu AI"
-            ]
-            for i, text_m in enumerate(algos):
-                color = (255, 255, 255) if "ESC" not in text_m else (150, 255, 150)
-                surf = font_item.render(text_m, True, color)
-                self.screen.blit(surf, (50, 100 + i * 35))
-                
-        elif self.state == "REPLAY_STEP":
-            viet_font_candidates = [
-                r"C:\Windows\Fonts\arial.ttf",
-                r"C:\Windows\Fonts\verdana.ttf",
-                r"C:\Windows\Fonts\tahoma.ttf",
-            ]
-            fp = next((p for p in viet_font_candidates if os.path.exists(p)), None)
-            font_item = pygame.font.Font(fp, 26) if fp else pygame.font.Font(None, 32)
-            text_m = font_item.render(f">>> REPLAY TUNG BUOC: Bam ENTER cho Buoc {self.replay_step_index+1} <<< (ESC: Huy)", True, (255, 255, 0))
+            self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, SCREEN_HEIGHT//2 - 120))
+            self.screen.blit(opt1, (SCREEN_WIDTH//2 - opt1.get_width()//2, SCREEN_HEIGHT//2 - 30))
+            self.screen.blit(opt2, (SCREEN_WIDTH//2 - opt2.get_width()//2, SCREEN_HEIGHT//2 + 30))
+            self.screen.blit(opt3, (SCREEN_WIDTH//2 - opt3.get_width()//2, SCREEN_HEIGHT//2 + 90))
+            self.screen.blit(opt4, (SCREEN_WIDTH//2 - opt4.get_width()//2, SCREEN_HEIGHT//2 + 150))
             
-            # Khung text
-            text_rect = text_m.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT - 30))
-            bg_rect = pygame.Rect(text_rect.left - 10, text_rect.top - 5, text_rect.width + 20, text_rect.height + 10)
-            pygame.draw.rect(self.screen, BLACK, bg_rect)
-            self.screen.blit(text_m, text_rect)
-
         pygame.display.flip()
 
     def run(self):
@@ -460,6 +554,43 @@ class Game:
         dt = 0.0
         while running:
             running = self.handle_events()
+            
+            # --- Tự động chơi (Auto-play AI) ---
+            if getattr(self, 'auto_play_queue', []) and not self.won:
+                if self.time_passed - self.last_auto_move_time > 0.15: # 150ms 1 bước chạy AI
+                    self.last_auto_move_time = self.time_passed
+                    action = self.auto_play_queue.pop(0)
+                    
+                    dx, dy = 0, 0
+                    if action == "LÊN": dy = -1
+                    elif action == "XUỐNG": dy = 1
+                    elif action == "TRÁI": dx = -1
+                    elif action == "PHẢI": dx = 1
+                    
+                    if dx != 0 or dy != 0:
+                        moved, pushed = self.movement_system.move(dx, dy)
+                        if moved:
+                            pushed_box = None
+                            if pushed:
+                                bx = self.level.player.x + dx
+                                by = self.level.player.y + dy
+                                for box in self.level.boxes:
+                                    if box.x == bx and box.y == by:
+                                        pushed_box = box
+                                        break
+                            self.reverse_move.record_move(self.level.player, self.level.boxes, dx, dy, pushed_box)
+                            MapExporter.export(self.level)
+                            if not self.sound_muted:
+                                snd = self.asset_loader.get_sound("push" if pushed else "move")
+                                if snd: snd.play()
+                                
+                            if self.win_condition.check_win():
+                                self.won = True
+                                print("You Win! (AI AUTO DRIVED)")
+                                if not self.sound_muted:
+                                    win_sound = self.asset_loader.get_sound("win")
+                                    if win_sound: win_sound.play()
+            
             self.render(dt)
             dt = self.clock.tick(FPS) / 1000.0
             

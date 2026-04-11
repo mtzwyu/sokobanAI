@@ -1,76 +1,110 @@
+import copy
 from src.utils.constants import UP, DOWN, LEFT, RIGHT
 
 class State:
     def __init__(self, player_pos, boxes):
         self.player_pos = player_pos
-        self.boxes = frozenset(boxes)
-        self._hash = hash((self.player_pos, self.boxes))
+        self.boxes = tuple(sorted(boxes))  # Tupled and sorted for hashing
 
     def __eq__(self, other):
-        if not isinstance(other, State):
-            return False
         return self.player_pos == other.player_pos and self.boxes == other.boxes
 
     def __hash__(self):
-        return self._hash
+        return hash((self.player_pos, self.boxes))
 
 class SolverAdapter:
     def __init__(self, level):
-        self.level = level
         self.grid = level.grid
         
-    def get_initial_state(self):
-        player_pos = (self.level.player.x, self.level.player.y)
-        boxes = [(b.x, b.y) for b in self.level.boxes]
-        return State(player_pos, boxes)
+        # Initial extraction
+        self.initial_player = None
+        self.initial_boxes = []
+        self.targets = set()
         
-    def get_targets(self):
-        targets = []
         for y in range(self.grid.height):
             for x in range(self.grid.width):
                 if self.grid.is_target(x, y):
-                    targets.append((x, y))
-        return targets
+                    self.targets.add((x, y))
 
-    def _is_wall(self, x, y):
-        return self.grid.is_wall(x, y)
+        if level.player:
+            self.initial_player = (level.player.x, level.player.y)
+        for b in level.boxes:
+            self.initial_boxes.append((b.x, b.y))
+
+        # Cache dist_maps 1 lần duy nhất khi khởi tạo
+        # (BFS từ từng đích — tốn kém khi gọi lại nhiều lần trong SA)
+        from src.algorithms.heuristic import build_dist_maps
+        self.dist_maps = build_dist_maps(self.grid, self.targets)
+
+    def get_initial_state(self):
+        return State(self.initial_player, self.initial_boxes)
+
+    def get_targets(self):
+        return self.targets
 
     def get_neighbors(self, state):
         neighbors = []
+        moves = [
+            (UP, "LÊN"),
+            (DOWN, "XUỐNG"),
+            (LEFT, "TRÁI"),
+            (RIGHT, "PHẢI")
+        ]
+
         px, py = state.player_pos
-        directions = [UP, DOWN, LEFT, RIGHT]
-        
-        for dx, dy in directions:
+
+        for (dx, dy), action_name in moves:
             nx, ny = px + dx, py + dy
-            
-            if self._is_wall(nx, ny):
+
+            # Check wall
+            if self.grid.is_wall(nx, ny) or self.grid.is_outside(nx, ny):
                 continue
-                
+
+            # Check box push
             if (nx, ny) in state.boxes:
-                nnx, nny = nx + dx, ny + dy
-                if self._is_wall(nnx, nny) or (nnx, nny) in state.boxes:
-                    continue
-                new_boxes = set(state.boxes)
-                new_boxes.remove((nx, ny))
-                new_boxes.add((nnx, nny))
-                neighbors.append(State((nx, ny), new_boxes))
-            else:
-                neighbors.append(State((nx, ny), state.boxes))
+                # Need to push the box
+                bx, by = nx + dx, ny + dy
                 
+                # Cannot push into wall or another box
+                if self.grid.is_wall(bx, by) or self.grid.is_outside(bx, by) or (bx, by) in state.boxes:
+                    continue
+                
+                # Valid push
+                new_boxes = list(state.boxes)
+                new_boxes.remove((nx, ny))
+                new_boxes.append((bx, by))
+                
+                new_state = State((nx, ny), new_boxes)
+                neighbors.append((action_name, new_state))
+            else:
+                # Simple move
+                new_state = State((nx, ny), state.boxes)
+                neighbors.append((action_name, new_state))
+
         return neighbors
 
     def get_heuristic_func(self):
-        targets = self.get_targets()
+        from src.algorithms.heuristic import calculate_heuristic
+        dist_maps = self.dist_maps  # Dùng bản đã cache
         
-        # Tiền xử lý (Pre-calculate) Vùng Chết (O(1) Check)
-        from src.algorithms.deadlock import build_dead_zones
-        dead_zones = build_dead_zones(self.grid, targets)
-        
-        # Tiền xử lý Bản đồ khoảng cách BFS (1 lần duy nhất mỗi màn)
-        from src.algorithms.heuristic import calculate_heuristic, build_dist_map
-        dist_map = build_dist_map(self.grid, targets)
-        
-        def heuristic(state):
-            return calculate_heuristic(state, targets, self.grid, dead_zones, dist_map)
+        def h(state, prev_boxes=None):
+            score, _, _, _ = calculate_heuristic(
+                state, self.targets, self.grid,
+                dist_maps=dist_maps, prev_boxes=prev_boxes
+            )
+            return score
             
-        return heuristic
+        return h
+
+    def get_detailed_heuristic_func(self):
+        from src.algorithms.heuristic import calculate_heuristic
+        dist_maps = self.dist_maps  # Dùng bản đã cache
+        
+        def h_detail(state, prev_boxes=None):
+            score, h1, h2, h3 = calculate_heuristic(
+                state, self.targets, self.grid,
+                dist_maps=dist_maps, prev_boxes=prev_boxes
+            )
+            return score, h1, h2, h3
+            
+        return h_detail
