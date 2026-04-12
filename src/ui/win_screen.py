@@ -28,9 +28,7 @@ class WinScreen:
         self.sel_index = 0
         self._scales   = [1.0] * len(self.OPTIONS)
 
-    # ------------------------------------------------------------------
-    # handle_events → trả về None (chưa chọn) hoặc một trong các hằng
-    # ------------------------------------------------------------------
+
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -67,9 +65,7 @@ class WinScreen:
 
         return None
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
+
     def _get_option_rects(self, sw, sh):
         """Trả về list Rect (bounding box) của từng mục option để hit-test."""
         item_h = max(36, int(sh * 0.07))
@@ -82,20 +78,16 @@ class WinScreen:
             rects.append(rect)
         return rects
 
-    # ------------------------------------------------------------------
-    # draw
-    # ------------------------------------------------------------------
+
     def draw(self, screen, dt):
         self.time += dt
         sw, sh = screen.get_size()
 
-        # ── 1. Overlay mờ ──────────────────────────────────────────────
         overlay = pygame.Surface((sw, sh), pygame.SRCALPHA)
         # Gradient từ đen trong suốt ở đỉnh đến đen/vàng tối ở đáy
         overlay.fill((0, 0, 0, 185))
         screen.blit(overlay, (0, 0))
 
-        # ── 2. Khung trung tâm ─────────────────────────────────────────
         box_w = min(sw - 80, max(420, int(sw * 0.55)))
         box_h = min(sh - 80, max(320, int(sh * 0.60)))
         box_x = (sw - box_w) // 2
@@ -120,12 +112,10 @@ class WinScreen:
         )
         pygame.draw.rect(screen, border_color, (box_x, box_y, box_w, box_h), 3, border_radius=12)
 
-        # ── 3. Ngôi sao trang trí ──────────────────────────────────────
         star_y  = box_y + int(box_h * 0.10)
         star_cx = sw // 2
         self._draw_star(screen, star_cx, star_y, int(sh * 0.045), border_color)
 
-        # ── 4. Tiêu đề "🏆 CHIẾN THẮNG!" ─────────────────────────────
         title_size = max(30, min(72, int(sh * 0.080)))
         font_title = pygame.font.SysFont("tahoma", title_size, bold=True)
 
@@ -142,7 +132,6 @@ class WinScreen:
         sub_rect  = sub_surf.get_rect(center=(sw // 2, box_y + int(box_h * 0.46)))
         screen.blit(sub_surf, sub_rect)
 
-        # ── 5. Các nút chọn ────────────────────────────────────────────
         opt_size = max(16, min(36, int(sh * 0.042)))
         font_opt  = pygame.font.SysFont("tahoma", opt_size, bold=True)
 
@@ -175,16 +164,13 @@ class WinScreen:
                 ul_x = rect.centerx - ul_w // 2
                 pygame.draw.line(screen, color, (ul_x, rect.bottom + 2), (ul_x + ul_w, rect.bottom + 2), 2)
 
-        # ── 6. Hint điều hướng ─────────────────────────────────────────
         hint_size = max(11, min(20, int(sh * 0.022)))
         font_hint = pygame.font.SysFont("tahoma", hint_size)
         hint_surf = font_hint.render("↑↓ để di chuyển   •   Enter để chọn", True, (120, 120, 120))
         hint_rect = hint_surf.get_rect(center=(sw // 2, box_y + box_h - int(sh * 0.025)))
         screen.blit(hint_surf, hint_rect)
 
-    # ------------------------------------------------------------------
-    # Helper: vẽ ngôi sao 5 cánh
-    # ------------------------------------------------------------------
+
     @staticmethod
     def _draw_star(surface, cx, cy, r, color):
         import math

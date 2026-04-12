@@ -32,7 +32,7 @@
 
 ## 🧩 Giới Thiệu
 
-**Sokoban** (倉庫番) là bài toán tối ưu hóa tổ hợp (combinatorial optimization) thuộc lớp PSPACE-complete, trong đó người chơi phải đẩy các hộp (`$`) vào đúng các vị trí đích (`.`) trên bản đồ lưới 2D.
+**Sokoban** là bài toán tối ưu hóa tổ hợp (combinatorial optimization) thuộc lớp PSPACE-complete, trong đó người chơi phải đẩy các hộp (`$`) vào đúng các vị trí đích (`.`) trên bản đồ lưới 2D.
 
 Dự án này xây dựng một **hệ thống AI hoàn chỉnh** bao gồm:
 
@@ -67,25 +67,25 @@ Dự án này xây dựng một **hệ thống AI hoàn chỉnh** bao gồm:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    GAME ENGINE (Pygame)                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐  │
-│  │  Menu    │  │  Level   │  │   HUD    │  │ Sound  │  │
-│  └──────────┘  └──────────┘  └──────────┘  └────────┘  │
+│                    GAME ENGINE (Pygame)                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐   │
+│  │  Menu    │  │  Level   │  │   HUD    │  │ Sound  │   │
+│  └──────────┘  └──────────┘  └──────────┘  └────────┘   │
 ├─────────────────────────────────────────────────────────┤
-│                    SYSTEMS LAYER                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
-│  │Movement  │  │   Undo   │  │Reverse   │              │
-│  └──────────┘  └──────────┘  └──────────┘              │
+│                    SYSTEMS LAYER                        │
+│  ┌──────────┐       ┌──────────┐        ┌──────────┐    │
+│  │Movement  │       │   Undo   │        │Reverse   │    │
+│  └──────────┘       └──────────┘        └──────────┘    │
 ├─────────────────────────────────────────────────────────┤
-│                    AI / ALGORITHMS                       │
+│                    AI / ALGORITHMS                      │
 │  ┌──────────────────┐  ┌────────────────────────────┐   │
 │  │  SolverAdapter   │  │     Heuristic Engine       │   │
 │  │  (State Bridge)  │  │  Hungarian + BFS + Deadlock│   │
 │  └──────────────────┘  └────────────────────────────┘   │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐  │
-│  │  Basic   │  │Stochastic│  │   Escape Maxima       │  │
-│  │  Search  │  │  Search  │  │ (Backtrack/Jump/Restart)│  │
-│  └──────────┘  └──────────┘  └──────────────────────┘  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐   │
+│  │  Basic   │  │Stochastic│  │   Escape Maxima      │   │
+│  │  Search  │  │  Search  │  │                      │   │
+│  └──────────┘  └──────────┘  └──────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
 ```
 

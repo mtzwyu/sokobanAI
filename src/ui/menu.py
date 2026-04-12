@@ -128,7 +128,7 @@ class MainMenu:
         self.time_passed += dt
         sw, sh = self.screen.get_size()
 
-        # ── 1. Nền ────────────────────────────────────────────────────────
+
         self.screen.fill((0, 0, 0))
         bg_image = self.asset_loader.get_image('Anh Home Menu', (sw, sh))
         if bg_image:
@@ -141,7 +141,7 @@ class MainMenu:
 
         font_title, font_menu = self._get_fonts(sw, sh)
 
-        # ── 2. Card Panel Trung Tâm ────────────────────────────────────────
+
         box_w = min(sw - 40, max(450, int(sw * 0.55)))
         box_h = min(sh - 40, max(500, int(sh * 0.75)))
         box_x = (sw - box_w) // 2
@@ -166,7 +166,7 @@ class MainMenu:
         )
         pygame.draw.rect(self.screen, border_color, (box_x, box_y, box_w, box_h), 3, border_radius=12)
 
-        # ── 3. Tiêu Đề ──────────────────────────────────────────────────
+
         title_scale = 1.0 + math.sin(self.time_passed * 4) * 0.04
         title = font_title.render("SOKOBAN", True, (255, 255, 255))
         title_scaled = pygame.transform.rotozoom(title, 0, title_scale)
@@ -179,7 +179,7 @@ class MainMenu:
         self.screen.blit(shadow_sc, shadow_rect)
         self.screen.blit(title_scaled, title_rect)
 
-        # ── 4. Vẽ Các Lựa Chọn ──────────────────────────────────────────
+
         opts = self._get_current_options()
         item_spacing = max(45, int(sh * 0.085))
         base_y = box_y + int(box_h * 0.45)

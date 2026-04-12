@@ -75,13 +75,11 @@ class AIMenu:
         self.time += dt
         sw, sh = screen.get_size()
 
-        # ── 1. Overlay mờ ──────────────────────────────────────────────
-        overlay = pygame.Surface((sw, sh), pygame.SRCALPHA)
+
         overlay.fill((0, 5, 20, 200)) # Sắc xanh xám đậm
         screen.blit(overlay, (0, 0))
 
-        # ── 2. Khung trung tâm ─────────────────────────────────────────
-        box_w = min(sw - 60, max(550, int(sw * 0.65)))
+
         box_h = min(sh - 60, max(420, int(sh * 0.70)))
         box_x = (sw - box_w) // 2
         box_y = (sh - box_h) // 2
@@ -105,13 +103,11 @@ class AIMenu:
         )
         pygame.draw.rect(screen, border_color, (box_x, box_y, box_w, box_h), 4, border_radius=15)
 
-        # ── 3. Biểu tượng trang trí ────────────────────────────────────
-        icon_cx = sw // 2
+
         icon_cy = box_y + int(box_h * 0.12)
         self._draw_ai_icon(screen, icon_cx, icon_cy, int(sh * 0.04), border_color)
 
-        # ── 4. Tiêu đề ──────────────────────────────────────────────────
-        title_size = max(26, min(55, int(sh * 0.065)))
+
         font_title = pygame.font.SysFont("tahoma", title_size, bold=True)
 
         pulse = 1.0 + math.sin(self.time * 3) * 0.03
@@ -120,8 +116,7 @@ class AIMenu:
         title_rect = title_scaled.get_rect(center=(sw // 2, box_y + int(box_h * 0.28)))
         screen.blit(title_scaled, title_rect)
 
-        # ── 5. Các nút chọn ────────────────────────────────────────────
-        opt_size = max(16, min(28, int(sh * 0.035)))
+
         font_opt  = pygame.font.SysFont("tahoma", opt_size, bold=True)
 
         item_gap = max(45, int(sh * 0.08))
@@ -158,8 +153,7 @@ class AIMenu:
                 ptr_rect = ptr_surf.get_rect(midright=(rect.left - 15, rect.centery))
                 screen.blit(ptr_surf, ptr_rect)
 
-        # ── 6. Hint điều hướng ─────────────────────────────────────────
-        hint_size = max(11, min(18, int(sh * 0.022)))
+
         font_hint = pygame.font.SysFont("tahoma", hint_size)
         hint_surf = font_hint.render("Sử dụng chuột, phím mũi tên (↑↓), hoặc Enter để chọn", True, (150, 150, 160))
         hint_rect = hint_surf.get_rect(center=(sw // 2, box_y + box_h - int(sh * 0.035)))
