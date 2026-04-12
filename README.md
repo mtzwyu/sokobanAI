@@ -1,289 +1,409 @@
-# 🎮 SOKOBAN AI - Đồ Án Trí Tuệ Nhân Tạo
+# 🎮 Sokoban AI — Trí Tuệ Nhân Tạo Giải Quyết Bài Toán Sokoban
 
-> Game giải đố Sokoban tích hợp **10 thuật toán AI** với giao diện đồ họa Pygame, hỗ trợ replay từng bước và phân tích heuristic thời gian thực.
+<div align="center">
+
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Pygame](https://img.shields.io/badge/Pygame--CE-2.3.2%2B-00B140?style=for-the-badge&logo=python&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-1.26%2B-013243?style=for-the-badge&logo=numpy&logoColor=white)
+![SciPy](https://img.shields.io/badge/SciPy-1.11%2B-8CAAE6?style=for-the-badge&logo=scipy&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
+
+**Đồ án Trí Tuệ Nhân Tạo — Ứng dụng các thuật toán Leo Đồi (Hill Climbing) & Tôi Luyện Mô Phỏng (Simulated Annealing) để giải bài toán Sokoban cổ điển.**
+
+</div>
 
 ---
 
 ## 📋 Mục Lục
 
-- [Giới Thiệu](#giới-thiệu)
-- [Tính Năng](#tính-năng)
-- [Cài Đặt](#cài-đặt)
-- [Hướng Dẫn Sử Dụng](#hướng-dẫn-sử-dụng)
-- [Thuật Toán AI](#thuật-toán-ai)
-- [Hàm Heuristic](#hàm-heuristic)
-- [Cấu Trúc Dự Án](#cấu-trúc-dự-án)
+- [Giới Thiệu](#-giới-thiệu)
+- [Tính Năng](#-tính-năng)
+- [Kiến Trúc Hệ Thống](#-kiến-trúc-hệ-thống)
+- [Cấu Trúc Dự Án](#-cấu-trúc-dự-án)
+- [Các Thuật Toán AI](#-các-thuật-toán-ai)
+- [Hàm Heuristic](#-hàm-heuristic)
+- [Cài Đặt](#-cài-đặt)
+- [Hướng Dẫn Sử Dụng](#-hướng-dẫn-sử-dụng)
+- [Đánh Giá Thuật Toán](#-đánh-giá-thuật-toán)
+- [Điều Khiển Game](#-điều-khiển-game)
+- [Yêu Cầu Hệ Thống](#-yêu-cầu-hệ-thống)
 
 ---
 
-## Giới Thiệu
+## 🧩 Giới Thiệu
 
-**Sokoban** ("Người quản kho") là trò chơi giải đố cổ điển trong đó người chơi đẩy các hộp vào đúng vị trí đích trên bản đồ lưới. Dự án này mở rộng Sokoban bằng cách tích hợp các thuật toán **Tìm kiếm Cục bộ (Local Search)** và **Tìm kiếm Toàn cục (Global Search)** từ lĩnh vực Trí Tuệ Nhân Tạo để tự động giải bài toán.
+**Sokoban** (倉庫番) là bài toán tối ưu hóa tổ hợp (combinatorial optimization) thuộc lớp PSPACE-complete, trong đó người chơi phải đẩy các hộp (`$`) vào đúng các vị trí đích (`.`) trên bản đồ lưới 2D.
 
-**Công nghệ sử dụng:**
+Dự án này xây dựng một **hệ thống AI hoàn chỉnh** bao gồm:
+
+- **Game engine** viết bằng `pygame-ce` với đồ họa sprite đầy đủ.
+- **8 thuật toán tìm kiếm cục bộ (Local Search)** thuộc họ Hill Climbing.
+- **Hàm Heuristic đa thành phần** dựa trên thuật toán Hungarian (phân công tối ưu) kết hợp BFS thực tế.
+- **Chế độ AI Debug**: trực quan hoá từng bước phân tích heuristic theo thời gian thực.
+- **AI Auto-Drive**: hệ thống tự động chọn thuật toán tốt nhất và tự chơi.
+- **Xuất kết quả Excel** để so sánh hiệu suất 8 thuật toán một cách hệ thống.
+
+---
+
+## ✨ Tính Năng
+
+| Tính Năng | Mô Tả |
+|---|---|
+| 🎮 **Game Engine** | Đồ họa sprite, âm thanh, animation, HUD đầy đủ |
+| 🤖 **8 Thuật Toán AI** | Từ Hill Climbing cơ bản đến Simulated Annealing nâng cao |
+| 🧠 **Heuristic Thông Minh** | Hungarian Algorithm + BFS đa nguồn + kiểm tra Deadlock |
+| 🔍 **AI Debug Mode** | Cửa sổ phân tích heuristic real-time (Tkinter overlay) |
+| 🚗 **AI Auto-Drive** | Tự động chọn thuật toán tốt nhất, tự chơi với animation |
+| 📊 **Xuất Excel** | So sánh chi tiết từng bước, từng thuật toán với màu sắc |
+| 🗺️ **Level Generator** | Tự sinh màn chơi ngẫu nhiên theo số hộp tùy chọn |
+| ↩️ **Undo/Reverse** | Hoàn tác nhiều bước & kéo hộp ngược lại |
+| 🔇 **Âm Thanh** | Nhạc nền, hiệu ứng move/push/win, tắt/bật tự do |
+
+---
+
+## 🏗️ Kiến Trúc Hệ Thống
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    GAME ENGINE (Pygame)                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐  │
+│  │  Menu    │  │  Level   │  │   HUD    │  │ Sound  │  │
+│  └──────────┘  └──────────┘  └──────────┘  └────────┘  │
+├─────────────────────────────────────────────────────────┤
+│                    SYSTEMS LAYER                         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
+│  │Movement  │  │   Undo   │  │Reverse   │              │
+│  └──────────┘  └──────────┘  └──────────┘              │
+├─────────────────────────────────────────────────────────┤
+│                    AI / ALGORITHMS                       │
+│  ┌──────────────────┐  ┌────────────────────────────┐   │
+│  │  SolverAdapter   │  │     Heuristic Engine       │   │
+│  │  (State Bridge)  │  │  Hungarian + BFS + Deadlock│   │
+│  └──────────────────┘  └────────────────────────────┘   │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐  │
+│  │  Basic   │  │Stochastic│  │   Escape Maxima       │  │
+│  │  Search  │  │  Search  │  │ (Backtrack/Jump/SA)   │  │
+│  └──────────┘  └──────────┘  └──────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📁 Cấu Trúc Dự Án
+
+```
+sokoban/
+│
+├── main.py                         # Điểm khởi chạy game
+├── config.py                       # Cấu hình màn hình, FPS
+├── evaluate_algorithms.py          # Script chạy & so sánh 8 thuật toán → Excel
+├── requirements.txt                # Dependencies
+├── Kq_Thuật_toán_AI_Bảng.xlsx     # Kết quả đánh giá (tự động sinh)
+│
+├── assets/
+│   ├── sprites/                    # Hình ảnh: wall, floor, box, player, target
+│   └── sounds/                     # Âm thanh: Soundtrack.wav, move, push, win
+│
+└── src/
+    ├── core/
+    │   ├── game.py                 # Game loop chính, AI Debug HUD, Auto-Drive
+    │   ├── level.py                # Quản lý màn chơi (load/parse)
+    │   ├── level_generator.py      # Sinh màn chơi ngẫu nhiên
+    │   └── grid.py                 # Grid utilities (wall/outside/target check)
+    │
+    ├── algorithms/
+    │   ├── heuristic.py            # Hàm H(S): H1+H2+H3+H4+H5+Push Bonus
+    │   ├── deadlock.py             # Phát hiện Deadlock (góc chết, 2×2)
+    │   ├── solver_adapter.py       # Cầu nối Level → AI State/Neighbors
+    │   │
+    │   ├── basic_search/
+    │   │   ├── simple_hill_climbing.py     # Leo đồi đơn giản (first-better)
+    │   │   └── steepest_ascent.py          # Leo đồi dốc nhất (best-of-all)
+    │   │
+    │   ├── stochastic_search/
+    │   │   ├── stochastic_hc.py            # Leo đồi ngẫu nhiên (random neighbor)
+    │   │   └── first_choice_hc.py          # First-choice Hill Climbing
+    │   │
+    │   └── escape_maxima/
+    │       ├── backtracking_hc.py          # Backtracking với bộ nhớ
+    │       ├── jumping_hc.py               # Nhảy ngẫu nhiên thoát cực trị
+    │       ├── random_restart_hc.py        # Khởi động lại ngẫu nhiên
+    │       └── simulated_annealing.py      # Tôi luyện mô phỏng (Kirkpatrick 1983)
+    │
+    ├── entities/                   # Player, Box (sprite + animation)
+    ├── systems/
+    │   ├── movement.py             # Xử lý di chuyển player + push box
+    │   ├── undo.py                 # Hoàn tác bước đi (Ctrl+Z)
+    │   ├── reverse_move.py         # Kéo hộp ngược lại (Backspace)
+    │   └── win_condition.py        # Kiểm tra thắng
+    │
+    ├── ui/
+    │   ├── menu.py                 # Main Menu (chọn chế độ, số hộp)
+    │   └── hud.py                  # HUD trong game (Home, Reset, Sound)
+    │
+    ├── map/
+    │   ├── map.txt                 # Bản đồ dạng text (ký tự)
+    │   ├── map_default.xlsx        # Bản đồ mặc định dạng Excel
+    │   └── load_map.py             # MapExporter: đọc/ghi state ra Excel
+    │
+    ├── data/                       # Dữ liệu trạng thái game
+    └── utils/
+        ├── constants.py            # Hằng số màu sắc, hướng di chuyển
+        └── loader.py               # AssetLoader (sprite, sound)
+```
+
+---
+
+## 🤖 Các Thuật Toán AI
+
+Dự án triển khai **8 biến thể thuật toán tìm kiếm cục bộ** theo phân loại học thuật:
+
+### 🔷 Nhóm 1: Basic Search (Tìm kiếm cơ bản)
+
+| Thuật Toán | File | Mô Tả |
+|---|---|---|
+| **Simple Hill Climbing** | `simple_hill_climbing.py` | Duyệt tuần tự hàng xóm, di chuyển ngay khi tìm thấy hàng xóm **đầu tiên** tốt hơn (first-better). Dừng khi không còn hàng xóm tốt hơn. |
+| **Steepest Ascent HC** | `steepest_ascent.py` | Đánh giá **toàn bộ** hàng xóm, chọn hàng xóm **tốt nhất** để di chuyển. Chính xác hơn nhưng tốn tài nguyên hơn. |
+
+### 🔶 Nhóm 2: Stochastic Search (Tìm kiếm ngẫu nhiên)
+
+| Thuật Toán | File | Mô Tả |
+|---|---|---|
+| **Stochastic HC** | `stochastic_hc.py` | Chọn **ngẫu nhiên** trong số các hàng xóm tốt hơn, giúp thoát khỏi các local minima đơn giản. |
+| **First Choice HC** | `first_choice_hc.py` | Sinh hàng xóm ngẫu nhiên đến khi tìm được hàng xóm cải thiện. Hiệu quả khi không gian hàng xóm rộng. |
+
+### 🔴 Nhóm 3: Escape Maxima (Thoát cực trị cục bộ)
+
+| Thuật Toán | File | Mô Tả |
+|---|---|---|
+| **Backtracking HC** | `backtracking_hc.py` | Ghi nhớ trạng thái đã thăm, quay lui khi gặp local minima. |
+| **Jumping HC** | `jumping_hc.py` | Thực hiện **5–15 bước ngẫu nhiên** để "nhảy" ra khỏi vùng local minima. |
+| **Random Restart HC** | `random_restart_hc.py` | Khởi động lại từ điểm ngẫu nhiên (nhiễu **3–10 bước** từ trạng thái ban đầu) khi bị kẹt. |
+| **Simulated Annealing** | `simulated_annealing.py` | Theo pseudocode Kirkpatrick et al. (1983): chấp nhận trạng thái tệ hơn với xác suất `P = e^(−ΔE/T)`. Nhiệt độ giảm dần theo hàm mũ. Có **Drift Control** để ngăn SA trôi xa tối ưu. |
+
+#### Công thức Simulated Annealing
+
+```
+S ← S₀,  T ← T₀
+While T > T_min:
+    For i in range(N):
+        S' ← random_neighbor(S)
+        ΔE = H(S') − H(S)
+        If ΔE ≤ 0:    S ← S'              # Luôn chấp nhận cải thiện
+        Else:
+            α ← random(0, 1)
+            If α ≤ e^(−ΔE/T):  S ← S'    # Chấp nhận với xác suất
+    T ← T × cooling_rate
+```
+
+> **Tham số mặc định:** `T₀ = tự động (initial_h / 50000)`, `cooling_rate = 0.97`, `T_min = 0.1`, `iter/temp = 5`
+
+---
+
+## 🧠 Hàm Heuristic
+
+Hàm đánh giá trạng thái `H(S)` là **đa thành phần**, được thiết kế đặc biệt cho Sokoban:
+
+```
+H(S) = Wt × H1 + Wa × H2 + Wp × H3 + H4 + Wb × H5 − W_push × [push_bonus]
+```
+
+| Thành Phần | Tên | Mô Tả | Trọng Số |
+|---|---|---|---|
+| **H1** | Transport Cost | Chi phí vận chuyển tối ưu: **Hungarian Algorithm** phân công Hộp→Đích + **BFS đa nguồn** để tính khoảng cách thực tế né tường | `Wt = 1.0` |
+| **H2** | Accessibility Cost | Chi phí tiếp cận: **BFS từ Player** đến vị trí đẩy tốt nhất (push position), có Euclidean tie-breaker | `Wa = 0.5` |
+| **H3** | Penalty Score | Điểm phạt rủi ro: `∞` (góc chết), `+100` (khối 2×2), `+10` (sát tường) | `Wp = 1000.0` |
+| **H4** | Unplaced Penalty | Phạt mỗi hộp chưa vào đích (bảo vệ hộp đã an toàn) | `W_done = 1000.0` |
+| **H5** | Push Direction | BFS đến push_pos + Euclidean tie-breaker: tạo gradient theo hướng đẩy đúng | `Wb = 0.05` |
+| **Push Bonus** | Box Move Bonus | Thưởng `-0.5` khi nước đi là **đẩy hộp** (phá tie khi H bằng nhau) | `W_push = 0.5` |
+
+> **Nguyên tắc thiết kế:** `H(S) = 0` ↔ giải quyết xong. `H(S) = ∞` ↔ deadlock tuyệt đối.
+
+### Phát hiện Deadlock (`deadlock.py`)
+
+- **Góc chết tĩnh (Static Dead Zone)**: Tiền tính trước các ô mà hộp không thể thoát ra.
+- **Khối 2×2 động (Dynamic 2×2)**: Phát hiện 4 ô liên thành khối vuông đều là hộp/tường → deadlock ngay.
+
+---
+
+## 🛠️ Cài Đặt
+
+### Yêu Cầu
 
 - **Python 3.10+**
-- **Pygame-CE** (Community Edition) — thư viện đồ họa game
+- **pip** (hoặc môi trường ảo `venv`)
 
----
-
-## Tính Năng
-
-| Tính năng | Mô tả |
-|-----------|-------|
-| 🎮 **Chơi thủ công** | Điều khiển nhân vật bằng phím mũi tên |
-| 🤖 **10 thuật toán AI** | Tự động giải Sokoban bằng các thuật toán tìm kiếm |
-| 🔄 **Replay từng bước** | Xem AI giải bài toán từng bước bằng phím Enter |
-| 📊 **Heuristic thời gian thực** | In giá trị heuristic mỗi bước trên console |
-| ⏪ **Reverse Move** | Tua ngược từng bước bằng phím Backspace |
-| ↩️ **Undo (Ctrl+Z)** | Khôi phục trạng thái trước đó |
-| 🗺️ **2 chế độ bản đồ** | Default (từ file) hoặc Random (sinh ngẫu nhiên) |
-| 🔊 **Âm thanh & Nhạc nền** | Hiệu ứng di chuyển, đẩy hộp, thắng game |
-| 🧱 **Phát hiện Deadlock** | 3 lớp bảo vệ: Static, Frozen, Corral |
-
----
-
-## Cài Đặt
-
-### Yêu cầu hệ thống
-
-- Python >= 3.10
-- pip (trình quản lý gói Python)
-
-### Các bước cài đặt
+### Bước 1: Clone dự án
 
 ```bash
-# 1. Clone hoặc giải nén dự án
+git clone https://github.com/<your-username>/sokoban.git
 cd sokoban
+```
 
-# 2. Tạo môi trường ảo (khuyến nghị)
+### Bước 2: Tạo môi trường ảo (khuyến nghị)
+
+```bash
 python -m venv venv
-venv\Scripts\activate       # Windows
-# source venv/bin/activate  # macOS/Linux
 
-# 3. Cài đặt thư viện
+# Windows
+venv\Scripts\activate
+
+# Linux / macOS
+source venv/bin/activate
+```
+
+### Bước 3: Cài đặt thư viện
+
+```bash
 pip install -r requirements.txt
+```
 
-# 4. Chạy game
+> **Lưu ý:** Script đánh giá `evaluate_algorithms.py` cần thêm `openpyxl` và `pandas`:
+>
+> ```bash
+> pip install openpyxl pandas
+> ```
+
+### Bước 4: Chạy game
+
+```bash
 python main.py
 ```
 
 ---
 
-## Hướng Dẫn Sử Dụng
+## 🎮 Hướng Dẫn Sử Dụng
 
-### Menu Chính
+### Chế Độ Chơi
 
-| Phím | Chức năng |
-|------|-----------|
-| ↑ ↓ | Chọn mục menu |
-| ← → | Thay đổi Mode / Số hộp |
-| Enter | Xác nhận lựa chọn |
+Sau khi vào game, **Main Menu** cho phép:
 
-### Trong Game
+- **Default Map**: Chơi bản đồ cố định (`map_default.xlsx`).
+- **Random Map**: Tự sinh màn chơi ngẫu nhiên (chọn số hộp từ 1–20).
 
-| Phím | Chức năng |
-|------|-----------|
-| ↑ ↓ ← → | Di chuyển nhân vật |
-| **Space** | Mở menu thuật toán AI |
-| **Ctrl+Z** | Undo (khôi phục snapshot) |
-| **Backspace** | Reverse Move (tua ngược từng bước, kéo hộp lùi) |
-| **R** | Reset level |
+### Chế Độ AI (Nhấn `SPACE` trong khi chơi)
 
-### Menu Thuật Toán AI (sau khi nhấn Space)
+Menu AI xuất hiện với 3 tùy chọn:
 
-| Phím | Thuật toán |
-|------|-----------|
-| **1** | Simple Hill Climbing |
-| **2** | Steepest-Ascent Hill Climbing |
-| **3** | Stochastic Hill Climbing |
-| **4** | Random-Restart Hill Climbing |
-| **5** | Simulated Annealing |
-| **6** | Tabu Search |
-| **7** | Local Beam Search |
-| **8** | Stochastic Beam Search |
-| **9** | Gradient Descent |
-| **0** | IDA* Full Solver (Tìm đường ngắn nhất) |
-| **ESC** | Thoát menu AI |
+```
+╔═══════════════════════════════════════════════╗
+║         HỆ THỐNG AI CHO SOKOBAN               ║
+║                                               ║
+║  [1] Phân tích Heuristic (Simple Hill Climbing)║
+║  [2] Chạy 8 Thuật toán & Tự Lái (Auto Drive)  ║
+║  [3] Hủy Tự Lái & Tắt tia Laser               ║
+║  [SPACE/ESC] Đóng menu                        ║
+╚═══════════════════════════════════════════════╝
+```
 
-### Chế Độ Replay (sau khi AI giải thành công)
+#### `[1]` — Chế Độ AI Debug (Heuristic Analysis)
 
-| Phím | Chức năng |
-|------|-----------|
-| **Enter** | Thực hiện 1 bước tiếp theo |
-| **ESC** | Hủy replay, quay về chơi tự do |
+- Mở cửa sổ **Tkinter** hiển thị real-time:
+  - H hiện tại của trạng thái
+  - H của 4 hướng di chuyển (LÊN/XUỐNG/TRÁI/PHẢI)
+  - Phân tách H1 (vận chuyển), H2 (tiếp cận), H3 (phạt rủi ro)
+  - Đánh dấu hướng **TỐI ƯU** (Simple HC sẽ chọn hướng nào)
+- Vẽ **mũi tên màu** trên bản đồ:
+  - 🟢 **Xanh** = hướng tối ưu (H giảm)
+  - 🔴 **Đỏ** = hướng không tối ưu
+
+#### `[2]` — AI Auto-Drive
+
+- Chạy **8 thuật toán** song song (ngầm).
+- Xuất kết quả chi tiết ra file **`Kq_Thuật_toán_AI_Bảng.xlsx`**.
+- Tự động chọn thuật toán có `H(end)` thấp nhất và ít bước nhất.
+- Game tự **chơi** từng bước với tốc độ 150ms/bước.
+
+#### `[3]` — Hủy AI
+
+- Dừng ngay chế độ tự lái và tắt overlay debug.
 
 ---
 
-## Thuật Toán AI
+## 📊 Đánh Giá Thuật Toán
 
-### Tìm Kiếm Cục Bộ (Local Search)
+Chạy đánh giá độc lập (không cần mở game):
 
-| # | Thuật toán | Đặc điểm |
-|---|-----------|----------|
-| 1 | **Simple Hill Climbing** | Chọn ngay hàng xóm tốt hơn đầu tiên |
-| 2 | **Steepest-Ascent** | Chọn hàng xóm tốt nhất trong tất cả |
-| 3 | **Stochastic Hill Climbing** | Chọn ngẫu nhiên trong các hàng xóm tốt hơn |
-| 4 | **Random-Restart** | Lặp lại Stochastic nhiều lần từ đầu nếu kẹt |
-| 5 | **Simulated Annealing** | Cho phép đi nước xấu với xác suất giảm dần |
-| 6 | **Tabu Search** | Cấm lặp lại trạng thái đã đi qua (danh sách Tabu) |
-| 7 | **Local Beam Search** | Duy trì K tia sáng song song |
-| 8 | **Stochastic Beam Search** | Beam Search với xác suất chọn ngẫu nhiên |
-| 9 | **Gradient Descent** | Tối ưu theo hướng gradient nhỏ nhất |
-
-### Tìm Kiếm Toàn Cục (Global Search)
-
-| # | Thuật toán | Đặc điểm |
-|---|-----------|----------|
-| 0 | **IDA\* Search** | Đảm bảo tìm đường bằng Iterative Deepening A* |
-
----
-
-## Hàm Heuristic & Kỹ Thuật Tối Ưu
-
-### Hệ Thống Tìm Kiếm Cục Bộ (Hill Climbing variants)
-
-Công thức tổ hợp các yếu tố trong hàm Heuristic:
-
-```
-H(S) = Wt × H_Transport  +  Wa × H_Approach  +  Wp × H_Penalty  +  H_Unplaced
+```bash
+python evaluate_algorithms.py
 ```
 
-| Yếu tố | Ý nghĩa | Trọng số |
-|---------|---------|----------|
-| **H_Transport** | Chi phí vận chuyển (Ghép cặp tối ưu Thùng → Đích qua thuật toán Hungarian + BFS Distances) | Wt = 1.0 |
-| **H_Approach** | Chi phí tiếp cận (Khoảng cách tính từ Player → Vị trí đẩy của thùng gần nhất) | Wa = 0.1 |
-| **H_Penalty** | Điểm phạt Rủi ro (Dính chùm 2x2: +100, Sát tường đơn thuần: +10, Kẹt góc chết: ∞) | Wp = 1000.0 |
-| **H_Unplaced** | Phạt thêm mỗi thùng KHÔNG ở đích (Tránh việc AI có xu hướng đẩy thùng đã vào đích ra ngoài lại) | +1000/thùng |
+### Kết Quả Xuất Ra (`Kq_Thuật_toán_AI_Bảng.xlsx`)
 
-### Hệ Thống Tìm Kiếm Toàn Cục (IDA* Engine)
+File Excel được định dạng tự động với màu sắc:
 
-Để thuật toán IDA* đảm bảo luôn tìm được lời giải tối ưu (shortest path), hệ thống sử dụng Heuristic tổng hợp Admissible, trả về kết quả MAX để cắt được nhiều nhánh nhất có thể:
+| Cột | Nội Dung |
+|---|---|
+| Bước thứ | Số thứ tự bước đi (0 = khởi đầu) |
+| Hành động | LÊN / XUỐNG / TRÁI / PHẢI |
+| Heuristic | Giá trị H(S) tại mỗi bước |
+
+- 🟦 **Header** xanh dương (tên thuật toán + thời gian chạy)
+- ✅ **Kết luận xanh**: Thuật toán thành công (H=0)
+- ❌ **Kết luận đỏ**: Thuật toán bị kẹt local minima
+
+### Tiêu Chí So Sánh
 
 ```
-H(s) = max( Manhattan × 1.0,  Hungarian+BFS × 1.5,  Per-goal BFS × 2.0 )
+Ưu tiên 1: H(end) thấp nhất
+Ưu tiên 2: Số bước ít nhất (nếu H(end) bằng nhau)
 ```
 
 ---
 
-## Hệ Thống Phát Hiện Deadlock (Cắt tỉa nhánh)
+## ⌨️ Điều Khiển Game
 
-Tối ưu tốc độ duyệt cây tìm kiếm bằng cơ chế nhận diện mọi trạng thái bế tắc:
-
-### Cho Hệ Thống Cục Bộ (Kiểm tra O(1) & Khối 2x2)
-
-1. **Ô Tử Thần Tĩnh (Static Dead Zone)** — Tính trước 1 lần:
-   - Góc tường chết (Corner Deadlock)
-   - Vùng quét cạnh (Edge Deadlocks qua Reverse BFS)
-2. **Khối Kẹt Vuông (Square 2x2 Deadlock)** — Phát hiện ngay lập tức 4 ô vuông kín tường/thùng (nhưng không chứa đích) sẽ không thể phá vỡ.
-
-### Cho Máy Giải Toàn Cục IDA* (5 Lớp Nâng Cao)
-
-_**Pha 1: Tĩnh (Tính 1 lần)**_
-
-1. Góc tường chết (Corner Deadlock)
-2. Hành lang cụt (Dead-end Corridors)
-3. Vùng bị cô lập (Isolated Zones)
-
-_**Pha 2: Động (Kiểm tra liên tục lúc Runtime)**_
-4. Kẹt tương hỗ (Mutual Pair Deadlock) - 2 thùng kề nhau sát tường
-5. Bị đóng băng (Freeze Deadlock) - Bị vây kín ≥ 3 mặt
-6. Hành lang hẹp (Tunnel Deadlock) - Bị tắc trên đoạn hẹp 1 ô
-7. Bị bủa vây (Corral Deadlock) - Dùng Flood Fill kiểm tra người chơi bị nhốt vòng trong thùng.
+| Phím | Chức Năng |
+|---|---|
+| `↑ ↓ ← →` | Di chuyển nhân vật |
+| `SPACE` | Mở menu AI |
+| `Ctrl + Z` | Hoàn tác bước đi (Undo) |
+| `Backspace` | Kéo hộp ngược lại (Reverse Move) |
+| `R` | Khởi động lại màn hiện tại |
+| `3` | Hủy AI Auto-Drive ngay lập tức |
+| Click 🏠 | Về Main Menu |
+| Click 🔄 | Reset màn chơi |
+| Click 🔇/🔊 | Bật/Tắt âm thanh |
 
 ---
 
-## Cấu Trúc Dự Án
+## 🖥️ Yêu Cầu Hệ Thống
+
+| Thành Phần | Yêu Cầu Tối Thiểu |
+|---|---|
+| **OS** | Windows 10, macOS 10.14, Ubuntu 20.04 trở lên |
+| **Python** | 3.10+ |
+| **RAM** | 512 MB |
+| **Màn hình** | 1024 × 768 trở lên |
+| **GPU** | Không yêu cầu (CPU rendering) |
+
+### Dependencies (`requirements.txt`)
 
 ```
-sokoban/
-├── main.py                    # Điểm khởi chạy
-├── config.py                  # Cấu hình (FPS, kích thước màn hình)
-├── requirements.txt           # Thư viện cần cài
-├── README.md                  # Tài liệu hướng dẫn
-│
-├── assets/                    # Tài nguyên đồ họa & âm thanh
-│   ├── sprites/               # Hình ảnh (tường, hộp, nhân vật, đích...)
-│   └── sounds/                # Âm thanh (di chuyển, đẩy, thắng, nhạc nền)
-│
-└── src/                       # Mã nguồn chính
-    ├── algorithms/            # Thuật toán AI
-    │   ├── advanced/          # Nhóm thuật toán nâng cao
-    │   │   ├── random_restart.py
-    │   │   ├── simulated_annealing.py
-    │   │   └── tabu_search.py
-    │   ├── basic/             # Nhóm thuật toán leo đồi cơ bản (Hill Climbing)
-    │   │   ├── simple_hill_climbing.py
-    │   │   ├── steepest_ascent.py
-    │   │   └── stochastic_hill_climbing.py
-    │   ├── data_science/      # Tìm kiếm cực trị (Gradient)
-    │   │   └── gradient_descent.py
-    │   ├── full/              # Bộ giải toàn cầu (Global Solver)
-    │   │   ├── ida_star.py             # IDA* Search
-    │   │   ├── deadlock_ida.py         # Phát hiện Deadlock chuyên sâu
-    │   │   ├── heuristic_ida.py        # Heuristic Admissible
-    │   │   ├── transposition_table.py  # Bộ nhớ đệm Transposition Table
-    │   │   └── zobrist.py              # Zobrist Hashing
-    │   ├── parallel/          # Các thuật toán kết hợp chùm (Beam Search)
-    │   │   ├── local_beam_search.py
-    │   │   └── stochastic_beam_search.py
-    │   ├── heuristic.py       # Hàm đánh giá Heuristic (4 yếu tố)
-    │   ├── deadlock.py        # Phát hiện Deadlock (3 lớp)
-    │   └── solver_adapter.py  # Bộ chuyển đổi Level → State cho AI
-    │
-    ├── core/                  # Lõi game
-    │   ├── game.py            # Vòng lặp chính, xử lý sự kiện, render
-    │   ├── level.py           # Quản lý level (load, parse bản đồ)
-    │   ├── level_generator.py # Sinh bản đồ ngẫu nhiên
-    │   └── grid.py            # Lưới ô vuông (tường, sàn, đích)
-    │
-    ├── data/                  # Dữ liệu hằng
-    │   └── random_config.py   # Cấu hình tính điểm Map động
-    │
-    ├── entities/              # Thực thể game
-    │   ├── player.py          # Nhân vật người chơi
-    │   └── box.py             # Hộp (thùng)
-    │
-    ├── systems/               # Hệ thống xử lý
-    │   ├── movement.py        # Di chuyển với nội suy
-    │   ├── undo.py            # Hệ thống Undo (snapshot bộ nhớ)
-    │   ├── reverse_move.py    # Kéo ngược trạng thái hộp
-    │   └── win_condition.py   # Kiểm tra điều kiện thắng
-    │
-    ├── ui/                    # Giao diện Đồ họa
-    │   ├── menu.py            # Menu chính
-    │   └── hud.py             # Thanh thông số game
-    │
-    ├── map/                   # Bản đồ
-    │   ├── load_map.py        # Tải map từ file văn bản (.txt)
-    │   ├── map.txt            # Bản đồ mặc định
-    │   ├── map_3box.txt       # Bản đồ 3 hộp
-    │   └── map_default.txt    # Bản đồ gốc
-    │
-    └── utils/                 # Tiện ích hệ thống
-        ├── constants.py       # Cấu hình trạng thái màu, độ lớn KH
-        └── loader.py          # Nạp ảnh tĩnh và Cache Memory Game
+pygame-ce>=2.3.2    # Game engine (Community Edition - nhanh hơn pygame gốc)
+numpy>=1.26.0       # Ma trận chi phí cho Hungarian Algorithm
+scipy>=1.11.0       # linear_sum_assignment (Hungarian Algorithm)
 ```
 
-### Ký Hiệu Bản Đồ
+---
 
-| Ký tự | Ý nghĩa |
-|-------|---------|
-| `#` | Tường |
-| ` ` | Sàn trống |
-| `$` | Hộp |
-| `.` | Đích |
-| `@` | Người chơi |
-| `*` | Hộp trên đích |
-| `+` | Người chơi trên đích |
-| `-` | Ngoài bản đồ |
+## 📚 Tài Liệu Tham Khảo
+
+- Kirkpatrick, S., Gelatt, C. D., & Vecchi, M. P. (1983). *Optimization by Simulated Annealing*. Science, 220(4598), 671–680.
+- Russell, S., & Norvig, P. (2020). *Artificial Intelligence: A Modern Approach* (4th ed.). Chapter 4: Search in Complex Environments.
+- Hungarian Algorithm: Kuhn, H. W. (1955). *The Hungarian method for the assignment problem*. Naval Research Logistics Quarterly, 2(1–2), 83–97.
+- SciPy `linear_sum_assignment`: [scipy.optimize.linear_sum_assignment](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linear_sum_assignment.html)
 
 ---
 
-## 👨💻 Tác Giả
+## 👨‍💻 Tác Giả
 
-**Hà Mạnh Trường** — Đồ án môn **Trí Tuệ Nhân Tạo**
-
-📧 Email: [mtruong2509@gmail.com](mailto:mtruong2509@gmail.com)
+Dự án được thực hiện trong khuôn khổ **môn học Trí Tuệ Nhân Tạo**, tập trung vào việc so sánh thực nghiệm các thuật toán tìm kiếm cục bộ trên bài toán Sokoban — một bài toán benchmark kinh điển trong AI.
 
 ---
+
+<div align="center">
+
+**Made with ❤️ using Python & Pygame**
+
+</div>
