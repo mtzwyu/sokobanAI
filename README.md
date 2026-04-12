@@ -8,7 +8,7 @@
 ![SciPy](https://img.shields.io/badge/SciPy-1.11%2B-8CAAE6?style=for-the-badge&logo=scipy&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
-**Đồ án Trí Tuệ Nhân Tạo — Ứng dụng các thuật toán Leo Đồi (Hill Climbing) & Tôi Luyện Mô Phỏng (Simulated Annealing) để giải bài toán Sokoban cổ điển.**
+**Đồ án Trí Tuệ Nhân Tạo — Ứng dụng các thuật toán Leo Đồi (Hill Climbing) để giải bài toán Sokoban cổ điển.**
 
 </div>
 
@@ -37,11 +37,11 @@
 Dự án này xây dựng một **hệ thống AI hoàn chỉnh** bao gồm:
 
 - **Game engine** viết bằng `pygame-ce` với đồ họa sprite đầy đủ.
-- **8 thuật toán tìm kiếm cục bộ (Local Search)** thuộc họ Hill Climbing.
+- **7 thuật toán tìm kiếm cục bộ (Local Search)** thuộc họ Hill Climbing.
 - **Hàm Heuristic đa thành phần** dựa trên thuật toán Hungarian (phân công tối ưu) kết hợp BFS thực tế.
 - **Chế độ AI Debug**: trực quan hoá từng bước phân tích heuristic theo thời gian thực.
 - **AI Auto-Drive**: hệ thống tự động chọn thuật toán tốt nhất và tự chơi.
-- **Xuất kết quả Excel** để so sánh hiệu suất 8 thuật toán một cách hệ thống.
+- **Xuất kết quả Excel** để so sánh hiệu suất 7 thuật toán một cách hệ thống.
 
 ---
 
@@ -50,7 +50,9 @@ Dự án này xây dựng một **hệ thống AI hoàn chỉnh** bao gồm:
 | Tính Năng | Mô Tả |
 |---|---|
 | 🎮 **Game Engine** | Đồ họa sprite, âm thanh, animation, HUD đầy đủ |
-| 🤖 **8 Thuật Toán AI** | Từ Hill Climbing cơ bản đến Simulated Annealing nâng cao |
+| 🖥️ **Responsive UI** | Tính năng tự động Scale toàn bộ Map và các Menu vừa theo mọi kích thước khung hình tuỳ ý của sổ |
+| 🎨 **Card UI Design** | Hệ thống UI (Main Menu, AI Menu, Win Screen) được thiết kế hiện đại với hiệu ứng shadow, pulse phát sáng tiếng Việt |
+| 🤖 **7 Thuật Toán AI** | Từ Simple Hill Climbing cơ bản đến Random Restart nâng cao |
 | 🧠 **Heuristic Thông Minh** | Hungarian Algorithm + BFS đa nguồn + kiểm tra Deadlock |
 | 🔍 **AI Debug Mode** | Cửa sổ phân tích heuristic real-time (Tkinter overlay) |
 | 🚗 **AI Auto-Drive** | Tự động chọn thuật toán tốt nhất, tự chơi với animation |
@@ -82,7 +84,7 @@ Dự án này xây dựng một **hệ thống AI hoàn chỉnh** bao gồm:
 │  └──────────────────┘  └────────────────────────────┘   │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐  │
 │  │  Basic   │  │Stochastic│  │   Escape Maxima       │  │
-│  │  Search  │  │  Search  │  │ (Backtrack/Jump/SA)   │  │
+│  │  Search  │  │  Search  │  │ (Backtrack/Jump/Restart)│  │
 │  └──────────┘  └──────────┘  └──────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -96,7 +98,7 @@ sokoban/
 │
 ├── main.py                         # Điểm khởi chạy game
 ├── config.py                       # Cấu hình màn hình, FPS
-├── evaluate_algorithms.py          # Script chạy & so sánh 8 thuật toán → Excel
+├── evaluate_algorithms.py          # Script chạy & so sánh 7 thuật toán → Excel
 ├── requirements.txt                # Dependencies
 ├── Kq_Thuật_toán_AI_Bảng.xlsx     # Kết quả đánh giá (tự động sinh)
 │
@@ -127,8 +129,7 @@ sokoban/
     │   └── escape_maxima/
     │       ├── backtracking_hc.py          # Backtracking với bộ nhớ
     │       ├── jumping_hc.py               # Nhảy ngẫu nhiên thoát cực trị
-    │       ├── random_restart_hc.py        # Khởi động lại ngẫu nhiên
-    │       └── simulated_annealing.py      # Tôi luyện mô phỏng (Kirkpatrick 1983)
+    │       └── random_restart_hc.py        # Khởi động lại ngẫu nhiên
     │
     ├── entities/                   # Player, Box (sprite + animation)
     ├── systems/
@@ -138,8 +139,10 @@ sokoban/
     │   └── win_condition.py        # Kiểm tra thắng
     │
     ├── ui/
-    │   ├── menu.py                 # Main Menu (chọn chế độ, số hộp)
-    │   └── hud.py                  # HUD trong game (Home, Reset, Sound)
+    │   ├── menu.py                 # Main Menu (Card UI giao diện chọn chế độ)
+    │   ├── ai_menu.py              # Menu AI điều khiển phân tích & Auto-Drive
+    │   ├── win_screen.py           # Màn hình chiến thắng có Navigation UI
+    │   └── hud.py                  # HUD trong game (Home, Reset, Menu, Sound)
     │
     ├── map/
     │   ├── map.txt                 # Bản đồ dạng text (ký tự)
@@ -156,7 +159,7 @@ sokoban/
 
 ## 🤖 Các Thuật Toán AI
 
-Dự án triển khai **8 biến thể thuật toán tìm kiếm cục bộ** theo phân loại học thuật:
+Dự án triển khai **7 biến thể thuật toán tìm kiếm cục bộ** theo phân loại học thuật:
 
 ### 🔷 Nhóm 1: Basic Search (Tìm kiếm cơ bản)
 
@@ -179,24 +182,6 @@ Dự án triển khai **8 biến thể thuật toán tìm kiếm cục bộ** th
 | **Backtracking HC** | `backtracking_hc.py` | Ghi nhớ trạng thái đã thăm, quay lui khi gặp local minima. |
 | **Jumping HC** | `jumping_hc.py` | Thực hiện **5–15 bước ngẫu nhiên** để "nhảy" ra khỏi vùng local minima. |
 | **Random Restart HC** | `random_restart_hc.py` | Khởi động lại từ điểm ngẫu nhiên (nhiễu **3–10 bước** từ trạng thái ban đầu) khi bị kẹt. |
-| **Simulated Annealing** | `simulated_annealing.py` | Theo pseudocode Kirkpatrick et al. (1983): chấp nhận trạng thái tệ hơn với xác suất `P = e^(−ΔE/T)`. Nhiệt độ giảm dần theo hàm mũ. Có **Drift Control** để ngăn SA trôi xa tối ưu. |
-
-#### Công thức Simulated Annealing
-
-```
-S ← S₀,  T ← T₀
-While T > T_min:
-    For i in range(N):
-        S' ← random_neighbor(S)
-        ΔE = H(S') − H(S)
-        If ΔE ≤ 0:    S ← S'              # Luôn chấp nhận cải thiện
-        Else:
-            α ← random(0, 1)
-            If α ≤ e^(−ΔE/T):  S ← S'    # Chấp nhận với xác suất
-    T ← T × cooling_rate
-```
-
-> **Tham số mặc định:** `T₀ = tự động (initial_h / 50000)`, `cooling_rate = 0.97`, `T_min = 0.1`, `iter/temp = 5`
 
 ---
 
@@ -290,7 +275,7 @@ Menu AI xuất hiện với 3 tùy chọn:
 ║         HỆ THỐNG AI CHO SOKOBAN               ║
 ║                                               ║
 ║  [1] Phân tích Heuristic (Simple Hill Climbing)║
-║  [2] Chạy 8 Thuật toán & Tự Lái (Auto Drive)  ║
+║  [2] Chạy 7 Thuật toán & Tự Lái (Auto Drive)  ║
 ║  [3] Hủy Tự Lái & Tắt tia Laser               ║
 ║  [SPACE/ESC] Đóng menu                        ║
 ╚═══════════════════════════════════════════════╝
@@ -309,7 +294,7 @@ Menu AI xuất hiện với 3 tùy chọn:
 
 #### `[2]` — AI Auto-Drive
 
-- Chạy **8 thuật toán** song song (ngầm).
+- Chạy **7 thuật toán** song song (ngầm).
 - Xuất kết quả chi tiết ra file **`Kq_Thuật_toán_AI_Bảng.xlsx`**.
 - Tự động chọn thuật toán có `H(end)` thấp nhất và ít bước nhất.
 - Game tự **chơi** từng bước với tốc độ 150ms/bước.
@@ -389,7 +374,6 @@ scipy>=1.11.0       # linear_sum_assignment (Hungarian Algorithm)
 
 ## 📚 Tài Liệu Tham Khảo
 
-- Kirkpatrick, S., Gelatt, C. D., & Vecchi, M. P. (1983). *Optimization by Simulated Annealing*. Science, 220(4598), 671–680.
 - Russell, S., & Norvig, P. (2020). *Artificial Intelligence: A Modern Approach* (4th ed.). Chapter 4: Search in Complex Environments.
 - Hungarian Algorithm: Kuhn, H. W. (1955). *The Hungarian method for the assignment problem*. Naval Research Logistics Quarterly, 2(1–2), 83–97.
 - SciPy `linear_sum_assignment`: [scipy.optimize.linear_sum_assignment](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linear_sum_assignment.html)

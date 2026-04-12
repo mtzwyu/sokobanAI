@@ -15,6 +15,8 @@ from src.systems.reverse_move import ReverseMove
 from src.systems.win_condition import WinCondition
 from src.ui.menu import MainMenu
 from src.ui.hud import HUD
+from src.ui.win_screen import WinScreen
+from src.ui.ai_menu import AIMenu
 from src.map.load_map import MapExporter
 import time
 import tracemalloc
@@ -120,7 +122,9 @@ class DebugHUDWindow(threading.Thread):
 class Game:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
+        self.screen_w = SCREEN_WIDTH
+        self.screen_h = SCREEN_HEIGHT
         pygame.display.set_caption("Sokoban")
         self.clock = pygame.time.Clock()
         
@@ -145,7 +149,9 @@ class Game:
         self.auto_play_queue = []
         self.last_auto_move_time = 0.0
         self.menu = MainMenu(self.screen, self.asset_loader)
-        self.hud = HUD(self.asset_loader, SCREEN_WIDTH)
+        self.hud  = HUD(self.asset_loader, self.screen_w, self.screen_h)
+        self.win_screen = WinScreen()
+        self.ai_menu_ui = AIMenu()
         
         # Phát nhạc nền
         bgm_path = os.path.join(self.asset_loader.base_path, "sounds", "Soundtrack.wav")
@@ -178,8 +184,8 @@ class Game:
         self.won = False
         
         if self.level.width > 0 and self.level.height > 0:
-            max_w = SCREEN_WIDTH // self.level.width
-            max_h = SCREEN_HEIGHT // self.level.height
+            max_w = self.screen_w // self.level.width
+            max_h = self.screen_h // self.level.height
             self.tile_size = min(max_w, max_h)
         else:
             self.tile_size = 64
@@ -188,8 +194,28 @@ class Game:
         MapExporter.export(self.level)
 
     def handle_events(self):
+        events = pygame.event.get()
+
+        for event in events:
+            if event.type == pygame.QUIT:
+                return False
+
+            if event.type == pygame.VIDEORESIZE:
+                self.screen_w = event.w
+                self.screen_h = event.h
+                self.screen = pygame.display.set_mode((self.screen_w, self.screen_h), pygame.RESIZABLE)
+                self.menu.screen = self.screen
+                self.hud.update_screen_width(self.screen_w, self.screen_h)
+
+                # Khi đang chơi hoặc vừa bấm nút Bắt Đầu, ta luôn kiểm tra để scale map
+                if self.level and self.level.width > 0 and self.level.height > 0:
+                    max_w = self.screen_w // self.level.width
+                    max_h = self.screen_h // self.level.height
+                    self.tile_size = max(1, min(max_w, max_h))
+                    self.asset_loader.scale_sprites(self.tile_size)
+
         if self.state == "MENU":
-            action = self.menu.handle_events()
+            action = self.menu.handle_events(events)
             if action == "QUIT":
                 return False
             elif isinstance(action, tuple) and action[0] == "PLAY":
@@ -197,50 +223,68 @@ class Game:
                 self.num_boxes = action[2]
                 if pygame.mixer.music.get_busy():
                     pygame.mixer.music.stop()
-                    
+
                 if mode == "Default":
                     self.load_level("src/map/map_default.xlsx")
                 else:
                     self.load_level()
-                    
+
                 self.state = "PLAYING"
             return True
-            
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+
+        if self.won:
+            action = self.win_screen.handle_events(events)
+            if action == WinScreen.PLAY_AGAIN:
+                self.won = False
+                self.load_level(is_reset=True)
+            elif action == WinScreen.MAIN_MENU:
+                self.won = False
+                self.state = "MENU"
+                bgm_path = os.path.join(self.asset_loader.base_path, "sounds", "Soundtrack.wav")
+                if os.path.exists(bgm_path):
+                    try:
+                        pygame.mixer.music.load(bgm_path)
+                        pygame.mixer.music.set_volume(0.0 if self.sound_muted else 0.5)
+                        pygame.mixer.music.play(loops=-1)
+                    except pygame.error:
+                        pass
+            elif action == WinScreen.QUIT:
                 return False
+            return True
+
+        for event in events:
                 
             if self.ai_menu_active:
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_1:
-                        self.ai_debug_mode = not self.ai_debug_mode
-                        if self.ai_debug_mode:
-                            if self.debug_window is None or not self.debug_window.is_alive():
-                                self.debug_window = DebugHUDWindow()
-                                self.debug_window.start()
-                        self.ai_menu_active = False
-                    elif event.key == pygame.K_2:
-                        self.ai_menu_active = False
-                        self.ai_debug_mode = False
-                        sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-                        from evaluate_algorithms import run_evaluation
-                        print("\n[AI] Bắt đầu quá trình đánh giá và xuất Excel theo Map hiện tại...")
-                        
-                        # AI Run và lấy về kết quả xịn nhất
-                        best_path = run_evaluation(self.level)
-                        if best_path:
-                            self.auto_play_queue = best_path
-                            self.last_auto_move_time = self.time_passed
-                        else:
-                            print("[AI] Thuật toán không tìm thấy nước đi nào!")
-                    elif event.key == pygame.K_3:
-                        self.ai_menu_active = False
-                        self.ai_debug_mode = False
-                        if getattr(self, 'auto_play_queue', []):
-                            print("\n[AI] HỦY BỎ: Đã dừng lệnh Tự Lái của AI.")
-                            self.auto_play_queue = []
-                    elif event.key in [pygame.K_SPACE, pygame.K_ESCAPE]:
-                        self.ai_menu_active = False
+                action = self.ai_menu_ui.handle_events([event])
+                if action == AIMenu.TOGGLE_HEURISTIC:
+                    self.ai_debug_mode = not self.ai_debug_mode
+                    if self.ai_debug_mode:
+                        if getattr(self, 'debug_window', None) is None or not self.debug_window.is_alive():
+                            self.debug_window = DebugHUDWindow()
+                            self.debug_window.start()
+                    self.ai_menu_active = False
+                elif action == AIMenu.RUN_AUTO_DRIVE:
+                    self.ai_menu_active = False
+                    self.ai_debug_mode = False
+                    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+                    from evaluate_algorithms import run_evaluation
+                    print("\n[AI] Bắt đầu quá trình đánh giá và xuất Excel theo Map hiện tại...")
+                    
+                    # AI Run và lấy về kết quả xịn nhất
+                    best_path = run_evaluation(self.level)
+                    if best_path:
+                        self.auto_play_queue = best_path
+                        self.last_auto_move_time = self.time_passed
+                    else:
+                        print("[AI] Thuật toán không tìm thấy nước đi nào!")
+                elif action == AIMenu.CANCEL_AUTO_DRIVE:
+                    self.ai_menu_active = False
+                    self.ai_debug_mode = False
+                    if getattr(self, 'auto_play_queue', []):
+                        print("\n[AI] HỦY BỎ: Đã dừng lệnh Tự Lái của AI.")
+                        self.auto_play_queue = []
+                elif action == AIMenu.CLOSE:
+                    self.ai_menu_active = False
                 continue
                 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.state == "PLAYING":
@@ -276,6 +320,7 @@ class Game:
                     MapExporter.export(self.level)
                 elif event.key == pygame.K_SPACE:
                     self.ai_menu_active = True
+                    self.ai_menu_ui.reset()
                 elif event.key == pygame.K_3:
                     if getattr(self, 'auto_play_queue', []):
                         print("\n[AI] HỦY BỎ: Đã dừng lệnh Tự Lái của AI & Tắt Radar.")
@@ -317,6 +362,7 @@ class Game:
                                 
                         if self.win_condition.check_win():
                             self.won = True
+                            self.win_screen.reset()
                             print("You Win!")
                             if not self.sound_muted:
                                 win_sound = self.asset_loader.get_sound("win")
@@ -324,6 +370,7 @@ class Game:
                                 
             elif event.type == pygame.KEYDOWN and self.won:
                 if event.key == pygame.K_r:
+                    self.won = False
                     self.load_level(is_reset=True)
                     
         return True
@@ -331,8 +378,8 @@ class Game:
     def calculate_offsets(self):
         level_pixel_width = self.level.width * self.tile_size
         level_pixel_height = self.level.height * self.tile_size
-        offset_x = (SCREEN_WIDTH - level_pixel_width) // 2
-        offset_y = (SCREEN_HEIGHT - level_pixel_height) // 2
+        offset_x = (self.screen_w - level_pixel_width) // 2
+        offset_y = (self.screen_h - level_pixel_height) // 2
         return offset_x, offset_y
 
     def render(self, dt):
@@ -511,42 +558,20 @@ class Game:
         self.level.player.draw(self.screen, self.asset_loader, offset_x, offset_y, self.tile_size)
         
         self.time_passed += dt
-        
+
+        # ── Win Screen ──────────────────────────────────────────────────
         if self.won:
-            font = pygame.font.Font(None, 74)
-            text = font.render("You Win! Press 'R' to restart", True, (255, 255, 255))
+            self.win_screen.draw(self.screen, dt)
             
-            pulse_scale = 1.0 + math.sin(self.time_passed * 5) * 0.1
-            scaled_text = pygame.transform.rotozoom(text, 0, pulse_scale)
-            
-            text_rect = scaled_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/4))
-            self.screen.blit(scaled_text, text_rect)
-            
-        self.hud.draw(self.screen, dt)
         if self.ai_debug_mode and not self.won:
             render_ai_debug_lines()
             
         if self.ai_menu_active:
-            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-            overlay.set_alpha(180)
-            overlay.fill((0, 0, 0))
-            self.screen.blit(overlay, (0,0))
-            
-            font_title = pygame.font.SysFont("tahoma", 42, bold=True)
-            font_opt = pygame.font.SysFont("tahoma", 26, bold=True)
-            
-            title = font_title.render("HỆ THỐNG AI CHO SOKOBAN", True, (255, 255, 255))
-            opt1 = font_opt.render("[1] Phân tích Heuristic theo Simple Hill Climbing", True, (0, 255, 0))
-            opt2 = font_opt.render("[2] Chạy ngầm 8 Thuật toán và Tự Lái (Auto Drive)", True, (255, 255, 0))
-            opt3 = font_opt.render("[3] Hủy Tự Lái & Tắt tia Laser", True, (255, 100, 100))
-            opt4 = font_opt.render("[SPACE/ESC] Đóng menu", True, (150, 150, 150))
-            
-            self.screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, SCREEN_HEIGHT//2 - 120))
-            self.screen.blit(opt1, (SCREEN_WIDTH//2 - opt1.get_width()//2, SCREEN_HEIGHT//2 - 30))
-            self.screen.blit(opt2, (SCREEN_WIDTH//2 - opt2.get_width()//2, SCREEN_HEIGHT//2 + 30))
-            self.screen.blit(opt3, (SCREEN_WIDTH//2 - opt3.get_width()//2, SCREEN_HEIGHT//2 + 90))
-            self.screen.blit(opt4, (SCREEN_WIDTH//2 - opt4.get_width()//2, SCREEN_HEIGHT//2 + 150))
-            
+            self.ai_menu_ui.draw(self.screen, dt)
+
+        # Luôn vẽ HUD (Menu, Home, Reset, Sound) đè lên trên cùng
+        self.hud.draw(self.screen, dt)
+
         pygame.display.flip()
 
     def run(self):

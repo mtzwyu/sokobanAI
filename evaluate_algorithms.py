@@ -17,7 +17,7 @@ from src.algorithms.stochastic_search.first_choice_hc import first_choice_hill_c
 from src.algorithms.escape_maxima.backtracking_hc import backtracking_hill_climbing
 from src.algorithms.escape_maxima.jumping_hc import jumping_hill_climbing
 from src.algorithms.escape_maxima.random_restart_hc import random_restart_hill_climbing
-from src.algorithms.escape_maxima.simulated_annealing import simulated_annealing
+
 
 def make_jump_function(adapter):
     """
@@ -123,14 +123,12 @@ def run_evaluation(target_level=None):
         ("Backtracking Hill Climbing",backtracking_hill_climbing,     [5000]),
         ("Jumping Hill Climbing",     jumping_hill_climbing,          [jump_fn, 5000]),
         ("Random Restart HC",         random_restart_hill_climbing,   [restart_fn, 10, 500]),
-        # SA: T=50, cooling=0.97, min=0.1, iter/temp=5 → ~500×5 = ~2500 heuristic calls (nhanh hơn)
-        ("Simulated Annealing",       simulated_annealing,            [50.0, 0.97, 0.1, 5])
     ]
     
     results = []
     max_steps = 0 # To align excel columns nicely
     
-    print("Bắt đầu chạy thí nghiệm 8 thuật toán...\n")
+    print("Bắt đầu chạy thí nghiệm 7 thuật toán...\n")
     for name, func, extra_args in algorithms:
         print(f"-> Đang chạy: {name} ...", end=" ")
         start_time = time.time()
@@ -233,9 +231,6 @@ def run_evaluation(target_level=None):
             conclusion = f"✓ Thành công: Phá đảo trong {steps} bước ({time_ms} ms)."
         else:
             conclusion = f"✗ Thất bại: Bị kẹt tại đỉnh cục bộ \n(H = {h_end})."
-            
-        if "Annealing" in name and h_end > 0:
-            conclusion = f"✗ Thất bại (H={h_end}): Chạy tốn sức nhưng lịch nhiệt độ có thể chưa phù hợp với map."
             
         ws.merge_cells(start_row=conclusion_row, start_column=base_col, end_row=conclusion_row+1, end_column=base_col+2)
         cell = ws.cell(row=conclusion_row, column=base_col, value=conclusion)
