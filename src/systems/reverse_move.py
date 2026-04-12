@@ -1,10 +1,7 @@
-# ==============================================================================
 # HỆ THỐNG ĐẢO NGƯỢC DI CHUYỂN (REVERSE MOVE) - KÉO HỘP NGƯỢC LẠI
-# ==============================================================================
 # Khác với Undo (khôi phục snapshot), Reverse Move cho phép người chơi
 # đi ngược lại và KÉO hộp theo mình (giống như tua ngược video).
 # Hữu ích khi AI replay hoặc khi người chơi muốn thử lại một nhánh khác.
-# ==============================================================================
 
 class ReverseMove:
     """Hệ thống đảo ngược di chuyển.

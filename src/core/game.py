@@ -559,7 +559,6 @@ class Game:
         
         self.time_passed += dt
 
-        # ── Win Screen ──────────────────────────────────────────────────
         if self.won:
             self.win_screen.draw(self.screen, dt)
             

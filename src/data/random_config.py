@@ -1,11 +1,9 @@
 # src/data/random_config.py
 
-# ==============================================================================
 # QUẢN LÝ CẤU HÌNH & TÍNH ĐIỂM CHO BẢN ĐỒ SINH NGẪU NHIÊN (RANDOM MAP)
 #
 # Dùng để đánh giá độ khó, cũng như điều hướng bộ sinh bản đồ LevelGenerator
 # tạo ra những thử thách phù hợp.
-# ==============================================================================
 
 class DynamicMapConfig:
     """Cấu hình hằng số cho Random Map Generation"""
@@ -14,9 +12,7 @@ class DynamicMapConfig:
     ASPECT_RATIO_W = 4
     ASPECT_RATIO_H = 3
     
-    # -------------------------------------------------------------------------
     # Các tham số kiểm soát Mật độ (Density) và Độ Rộng (Spaciousness)
-    # -------------------------------------------------------------------------
     
     # Diện tích trống tối thiểu cần thiết cho mỗi hộp (để đảm bảo không bị quá chật)
     MIN_FREE_SPACE_PER_BOX = 15
@@ -29,9 +25,7 @@ class DynamicMapConfig:
     EDGE_ROUGHNESS_LAYER_1_PROB = 0.40  # Tầng 1 (sát tường ngoài)
     EDGE_ROUGHNESS_LAYER_2_PROB = 0.10  # Tầng 2 (vào trong 1 ô)
     
-    # -------------------------------------------------------------------------
     # Các thông số về Độ Sâu (Depth) của Bài toán (Walk rẽ nhánh)
-    # -------------------------------------------------------------------------
     
     # Số bước đi lùi tối đa (Reverse Random Walk) mỗi thùng để trộn bản đồ.
     # Càng nhiều bước đi lùi -> Thùng và đích càng xa nhau -> Càng khó.
