@@ -42,7 +42,7 @@ class WinScreen:
                 elif event.key == pygame.K_r:
                     return self.PLAY_AGAIN
                 elif event.key == pygame.K_m:
-                    return self.MAIN_MENU
+                    return self.MAIN_MENU   
                 elif event.key == pygame.K_q:
                     return self.QUIT
 
