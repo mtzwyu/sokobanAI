@@ -117,7 +117,7 @@ class WinScreen:
         self._draw_star(screen, star_cx, star_y, int(sh * 0.045), border_color)
 
         title_size = max(30, min(72, int(sh * 0.080)))
-        font_title = pygame.font.SysFont("tahoma", title_size, bold=True)
+        font_title = pygame.font.SysFont("segoeui", title_size, bold=True)
 
         pulse = 1.0 + math.sin(self.time * 3.5) * 0.04
         title_surf = font_title.render("CHIẾN THẮNG!", True, (255, 230, 60))
@@ -127,13 +127,13 @@ class WinScreen:
 
         # Sub-title nhỏ
         sub_size = max(14, min(28, int(sh * 0.032)))
-        font_sub  = pygame.font.SysFont("tahoma", sub_size)
+        font_sub  = pygame.font.SysFont("segoeui", sub_size)
         sub_surf  = font_sub.render("Tất cả hộp đã vào đúng vị trí!", True, (200, 200, 200))
         sub_rect  = sub_surf.get_rect(center=(sw // 2, box_y + int(box_h * 0.46)))
         screen.blit(sub_surf, sub_rect)
 
         opt_size = max(16, min(36, int(sh * 0.042)))
-        font_opt  = pygame.font.SysFont("tahoma", opt_size, bold=True)
+        font_opt  = pygame.font.SysFont("segoeui", opt_size, bold=True)
 
         item_gap = max(42, int(sh * 0.075))
         base_y   = box_y + int(box_h * 0.62)
@@ -165,7 +165,7 @@ class WinScreen:
                 pygame.draw.line(screen, color, (ul_x, rect.bottom + 2), (ul_x + ul_w, rect.bottom + 2), 2)
 
         hint_size = max(11, min(20, int(sh * 0.022)))
-        font_hint = pygame.font.SysFont("tahoma", hint_size)
+        font_hint = pygame.font.SysFont("segoeui", hint_size)
         hint_surf = font_hint.render("↑↓ để di chuyển   •   Enter để chọn", True, (120, 120, 120))
         hint_rect = hint_surf.get_rect(center=(sw // 2, box_y + box_h - int(sh * 0.025)))
         screen.blit(hint_surf, hint_rect)

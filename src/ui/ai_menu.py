@@ -75,11 +75,11 @@ class AIMenu:
         self.time += dt
         sw, sh = screen.get_size()
 
-
+        overlay = pygame.Surface((sw, sh), pygame.SRCALPHA)
         overlay.fill((0, 5, 20, 200)) # Sắc xanh xám đậm
         screen.blit(overlay, (0, 0))
 
-
+        box_w = min(sw - 40, max(500, int(sw * 0.45)))
         box_h = min(sh - 60, max(420, int(sh * 0.70)))
         box_x = (sw - box_w) // 2
         box_y = (sh - box_h) // 2
@@ -103,58 +103,65 @@ class AIMenu:
         )
         pygame.draw.rect(screen, border_color, (box_x, box_y, box_w, box_h), 4, border_radius=15)
 
-
+        icon_cx = box_x + box_w // 2
         icon_cy = box_y + int(box_h * 0.12)
         self._draw_ai_icon(screen, icon_cx, icon_cy, int(sh * 0.04), border_color)
 
-
-        font_title = pygame.font.SysFont("tahoma", title_size, bold=True)
+        title_size = max(24, min(64, int(sh * 0.06)))
+        font_title = pygame.font.SysFont("segoeui", title_size, bold=True)
 
         pulse = 1.0 + math.sin(self.time * 3) * 0.03
-        title_surf = font_title.render("HỆ THỐNG AI CHO SOKOBAN", True, (240, 250, 255))
+        title_surf = font_title.render("HỆ THỐNG AI CHO SOKOBAN", True, (255, 255, 255))
         title_scaled = pygame.transform.rotozoom(title_surf, 0, pulse)
         title_rect = title_scaled.get_rect(center=(sw // 2, box_y + int(box_h * 0.28)))
+        
+        # Thêm bóng cho Text tiêu đề giống ngoài menu
+        shadow_ti = font_title.render("HỆ THỐNG AI CHO SOKOBAN", True, (0, 0, 0))
+        shadow_sc = pygame.transform.rotozoom(shadow_ti, 0, pulse)
+        shadow_rect = shadow_sc.get_rect(center=(sw // 2 + 3, box_y + int(box_h * 0.28) + 3))
+        screen.blit(shadow_sc, shadow_rect)
         screen.blit(title_scaled, title_rect)
 
+        opt_size  = max(16, min(42, int(sh * 0.035)))
+        font_opt  = pygame.font.SysFont("segoeui", opt_size, bold=True)
 
-        font_opt  = pygame.font.SysFont("tahoma", opt_size, bold=True)
-
-        item_gap = max(45, int(sh * 0.08))
+        item_gap = max(45, int(sh * 0.085))
         base_y   = box_y + int(box_h * 0.48)
 
         for i, (label, _, base_color) in enumerate(self.OPTIONS):
             is_sel  = (i == self.sel_index)
             target  = 1.15 if is_sel else 1.0
             self._scales[i] += (target - self._scales[i]) * 15.0 * dt
+            
+            current_scale = self._scales[i]
             if is_sel:
-                self._scales[i] += math.sin(self.time * 12) * 0.015
-
-            # Tăng độ sáng khi chọn
-            color = (
-                min(255, int(base_color[0] * (1.3 if is_sel else 1.0))),
-                min(255, int(base_color[1] * (1.3 if is_sel else 1.0))),
-                min(255, int(base_color[2] * (1.3 if is_sel else 1.0))),
-            )
+                current_scale += math.sin(self.time * 10) * 0.02
+                color = base_color
+            else:
+                color = (220, 220, 220)
 
             text_surf   = font_opt.render(label, True, color)
-            text_scaled = pygame.transform.rotozoom(text_surf, 0, self._scales[i])
+            text_scaled = pygame.transform.rotozoom(text_surf, 0, current_scale)
             cy = base_y + i * item_gap
             rect = text_scaled.get_rect(center=(sw // 2, cy))
             screen.blit(text_scaled, rect)
 
             # Gạch chân + viền highlight phụ khi đang chọn
             if is_sel:
-                hw = int(rect.width * 0.6)
+                hw = int(rect.width * 0.8)
                 hx = rect.centerx - hw // 2
-                pygame.draw.line(screen, color, (hx, rect.bottom + 4), (hx + hw, rect.bottom + 4), 2)
+                pygame.draw.line(screen, color, (hx, rect.bottom + 2), (hx + hw, rect.bottom + 2), 2)
                 
-                # Thêm con trỏ nhỏ 2 bên
+                # Thêm con trỏ con 2 bên
                 ptr_surf = font_opt.render("►", True, color)
-                ptr_rect = ptr_surf.get_rect(midright=(rect.left - 15, rect.centery))
-                screen.blit(ptr_surf, ptr_rect)
+                ptl_surf = font_opt.render("◄", True, color)
+                ptr_sc = pygame.transform.rotozoom(ptr_surf, 0, current_scale * 0.8)
+                ptl_sc = pygame.transform.rotozoom(ptl_surf, 0, current_scale * 0.8)
+                screen.blit(ptr_sc, ptr_sc.get_rect(midright=(rect.left - 10, cy)))
+                screen.blit(ptl_sc, ptl_sc.get_rect(midleft=(rect.right + 10, cy)))
 
-
-        font_hint = pygame.font.SysFont("tahoma", hint_size)
+        hint_size = max(14, int(sh * 0.02))
+        font_hint = pygame.font.SysFont("segoeui", hint_size)
         hint_surf = font_hint.render("Sử dụng chuột, phím mũi tên (↑↓), hoặc Enter để chọn", True, (150, 150, 160))
         hint_rect = hint_surf.get_rect(center=(sw // 2, box_y + box_h - int(sh * 0.035)))
         screen.blit(hint_surf, hint_rect)

@@ -37,7 +37,7 @@ class Level:
                     lines.append(''.join(line_chars).rstrip())
                 return self.load_from_lines(lines)
             except Exception as e:
-                print(f"[LỖI] Không thể đọc map từ Excel: {e}")
+                print(f"[ERROR] Cannot load map from Excel: {e}")
                 return False
                 
         with open(filepath, 'r', encoding='utf-8') as f:

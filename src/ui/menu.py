@@ -30,8 +30,8 @@ class MainMenu:
         title_size = max(40, min(110, int(sh * 0.12)))
         menu_size  = max(16, min(42, int(sh * 0.045)))
         return (
-            pygame.font.SysFont('tahoma', title_size, bold=True),
-            pygame.font.SysFont('tahoma', menu_size,  bold=True),
+            pygame.font.SysFont('segoeui', title_size, bold=True),
+            pygame.font.SysFont('segoeui', menu_size,  bold=True),
         )
 
     def _get_current_options(self):
