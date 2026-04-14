@@ -56,7 +56,8 @@ Dự án này xây dựng một **hệ thống AI hoàn chỉnh** bao gồm:
 | 🧠 **Heuristic Thông Minh** | Hungarian Algorithm + BFS đa nguồn + kiểm tra Deadlock |
 | 🔍 **AI Debug Mode** | Cửa sổ phân tích heuristic real-time (Tkinter overlay) |
 | 🚗 **AI Auto-Drive** | Tự động chọn thuật toán tốt nhất, tự chơi với animation |
-| 📊 **Xuất Excel** | So sánh chi tiết từng bước, từng thuật toán với màu sắc |
+| 📊 **Xuất Excel & Chart**| Xuất bảng kèm Sheet Vẽ biểu đồ tốc độ tĩnh ngay trong Excel |
+| 📈 **Data Visualization**| Sinh ảnh Dashboard đa chiều (Radar, PIE, Line, Scatter) chống đè chữ bằng `adjustText` và trích lẻ 7 file ảnh tự động |
 | 🗺️ **Level Generator** | Tự sinh màn chơi ngẫu nhiên theo số hộp tùy chọn |
 | ↩️ **Undo/Reverse** | Hoàn tác nhiều bước & kéo hộp ngược lại |
 | 🔇 **Âm Thanh** | Nhạc nền, hiệu ứng move/push/win, tắt/bật tự do |
@@ -98,9 +99,13 @@ sokoban/
 │
 ├── main.py                         # Điểm khởi chạy game
 ├── config.py                       # Cấu hình màn hình, FPS
+├── chart_analysis.py               # Sinh ảnh biểu đồ chuyên nghiệp (Radar, Scatter, v.v.)
 ├── evaluate_algorithms.py          # Script chạy & so sánh 7 thuật toán → Excel
 ├── requirements.txt                # Dependencies
-├── Kq_Thuật_toán_AI_Bảng.xlsx     # Kết quả đánh giá (tự động sinh)
+├── all_hill_climbing_flowcharts.md # Sơ đồ luồng lưu đồ các thuật toán AI
+├── Kq_Thuật_toán_AI_Bảng.xlsx     # Kết quả đánh giá (bảng số liệu + biểu đồ trong Excel)
+├── Bieu_Do_Danh_Gia_Thuat_Toan.png # Ảnh Dashboard đánh giá tổng hợp sinh tự động
+├── charts_output/                  # Thư mục xuất riêng 7 biểu đồ ảnh báo cáo
 │
 ├── assets/
 │   ├── sprites/                    # Hình ảnh: wall, floor, box, player, target
@@ -243,10 +248,10 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-> **Lưu ý:** Script đánh giá `evaluate_algorithms.py` cần thêm `openpyxl` và `pandas`:
+> **Lưu ý:** Nếu bạn muốn chạy các tính năng vẽ biểu đồ và đánh giá, hãy cài full bộ:
 >
 > ```bash
-> pip install openpyxl pandas
+> pip install openpyxl pandas matplotlib adjustText
 > ```
 
 ### Bước 4: Chạy game
@@ -313,19 +318,20 @@ Chạy đánh giá độc lập (không cần mở game):
 python evaluate_algorithms.py
 ```
 
-### Kết Quả Xuất Ra (`Kq_Thuật_toán_AI_Bảng.xlsx`)
+### 1. Xuất Kết Quả Ra Excel (`evaluate_algorithms.py`)
 
-File Excel được định dạng tự động với màu sắc:
+File Excel `Kq_Thuật_toán_AI_Bảng.xlsx` được định dạng tự động với 2 Sheet:
+- **Sheet "Kq AI"**: Hiển thị bảng chi tiết từng bước cho từng thuật toán (hành động, H(S)), có màu sắc đỏ/xanh kết luận chiến thắng (H=0) hay kẹt (H>0).
+- **Sheet "Biểu Đồ Tốc Độ"**: Tích hợp trực tiếp 4 biểu đồ Bar Chart và Line Chart vào Excel.
 
-| Cột | Nội Dung |
-|---|---|
-| Bước thứ | Số thứ tự bước đi (0 = khởi đầu) |
-| Hành động | LÊN / XUỐNG / TRÁI / PHẢI |
-| Heuristic | Giá trị H(S) tại mỗi bước |
+### 2. Dashboard Đồ Thị Hình Ảnh Hình Ảnh (`chart_analysis.py`)
 
-- 🟦 **Header** xanh dương (tên thuật toán + thời gian chạy)
-- ✅ **Kết luận xanh**: Thuật toán thành công (H=0)
-- ❌ **Kết luận đỏ**: Thuật toán bị kẹt local minima
+Sử dụng thư viện `matplotlib` và `adjustText` để xuất các Dashboard đánh giá cực sắc nét:
+```bash
+python chart_analysis.py --excel
+```
+- **Dashboard Tổng**: Xuất ảnh `Bieu_Do_Danh_Gia_Thuat_Toan.png` gồm 6 khung (Radar, Scatter, Pie chi tiết). Text của các thuật toán được tách động (không dính trùm).
+- **Ảnh Phân Tách**: Tự động đưa 7 bức ảnh riêng lẻ cho từng khung biểu đồ vào mục `charts_output/`. (1_ThoiGian.png, 6_Radar.png...)
 
 ### Tiêu Chí So Sánh
 
@@ -368,6 +374,10 @@ File Excel được định dạng tự động với màu sắc:
 pygame-ce>=2.3.2    # Game engine (Community Edition - nhanh hơn pygame gốc)
 numpy>=1.26.0       # Ma trận chi phí cho Hungarian Algorithm
 scipy>=1.11.0       # linear_sum_assignment (Hungarian Algorithm)
+openpyxl            # Xuất bảng tính Excel nội tuyến (+ Biểu Đồ Office)
+pandas              # Thao tác dữ liệu bảng tốc độ cao
+matplotlib          # Thư viện vẽ Dashboard đánh giá đa chiều Radar, Scatter
+adjustText          # Tự động đẩy né khung nhãn Text chống dính/trùm chữ
 ```
 
 ---
