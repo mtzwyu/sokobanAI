@@ -276,14 +276,14 @@ Sau khi vào game, **Main Menu** cho phép:
 Menu AI xuất hiện với 3 tùy chọn:
 
 ```
-╔═══════════════════════════════════════════════╗
-║         HỆ THỐNG AI CHO SOKOBAN               ║
-║                                               ║
+╔════════════════════════════════════════════════╗
+║         HỆ THỐNG AI CHO SOKOBAN                ║
+║                                                ║
 ║  [1] Phân tích Heuristic (Simple Hill Climbing)║
-║  [2] Chạy 7 Thuật toán & Tự Lái (Auto Drive)  ║
-║  [3] Hủy Tự Lái & Tắt tia Laser               ║
-║  [SPACE/ESC] Đóng menu                        ║
-╚═══════════════════════════════════════════════╝
+║  [2] Chạy 7 Thuật toán & Tự Lái (Auto Drive)   ║
+║  [3] Hủy Tự Lái & Tắt tia Laser                ║
+║  [SPACE/ESC] Đóng menu                         ║
+╚════════════════════════════════════════════════╝
 ```
 
 #### `[1]` — Chế Độ AI Debug (Heuristic Analysis)
@@ -321,15 +321,18 @@ python evaluate_algorithms.py
 ### 1. Xuất Kết Quả Ra Excel (`evaluate_algorithms.py`)
 
 File Excel `Kq_Thuật_toán_AI_Bảng.xlsx` được định dạng tự động với 2 Sheet:
+
 - **Sheet "Kq AI"**: Hiển thị bảng chi tiết từng bước cho từng thuật toán (hành động, H(S)), có màu sắc đỏ/xanh kết luận chiến thắng (H=0) hay kẹt (H>0).
 - **Sheet "Biểu Đồ Tốc Độ"**: Tích hợp trực tiếp 4 biểu đồ Bar Chart và Line Chart vào Excel.
 
 ### 2. Dashboard Đồ Thị Hình Ảnh Hình Ảnh (`chart_analysis.py`)
 
 Sử dụng thư viện `matplotlib` và `adjustText` để xuất các Dashboard đánh giá cực sắc nét:
+
 ```bash
 python chart_analysis.py --excel
 ```
+
 - **Dashboard Tổng**: Xuất ảnh `Bieu_Do_Danh_Gia_Thuat_Toan.png` gồm 6 khung (Radar, Scatter, Pie chi tiết). Text của các thuật toán được tách động (không dính trùm).
 - **Ảnh Phân Tách**: Tự động đưa 7 bức ảnh riêng lẻ cho từng khung biểu đồ vào mục `charts_output/`. (1_ThoiGian.png, 6_Radar.png...)
 
