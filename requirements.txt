@@ -1,5 +1,0 @@
-pygame
-openpyxl
-pandas
-matplotlib
-numpy

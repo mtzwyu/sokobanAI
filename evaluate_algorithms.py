@@ -526,10 +526,43 @@ def run_evaluation(target_level=None):
             if cell.fill == PatternFill() or cell.fill.start_color.index == '00000000':
                 cell.fill = bg_fill
 
-    wb.save(filename)
-    print(f"\n[THÀNH CÔNG] Đã lưu bảng kết quả + biểu đồ đánh giá tốc độ vào: {filename}")
+    try:
+        wb.save(filename)
+        print(f"\n[THÀNH CÔNG] Đã lưu bảng kết quả + biểu đồ đánh giá tốc độ vào: {filename}")
+    except PermissionError:
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%H%M%S_%d%m%Y")
+        filename = f"Kq_Thuật_toán_AI_Bảng_{timestamp}.xlsx"
+        try:
+            wb.save(filename)
+            print(f"\n[THÀNH CÔNG] File gốc đang mở, đã lưu tạm vào file mới: {filename}")
+        except Exception as e:
+            print(f"\n[LỖI] Không thể lưu file Excel: {e}")
+            
     print(f"   → Sheet 'Kq AI': Bảng chi tiết từng bước")
     print(f"   → Sheet 'Biểu Đồ Tốc Độ': 4 biểu đồ đánh giá trực quan")
+
+    # --- TỰ ĐỘNG TẠO BIỂU ĐỒ PNG ---
+    try:
+        from chart_analysis import plot_charts, save_individual_charts
+        
+        chart_results = []
+        for r in results:
+            chart_results.append({
+                "name": r["Thuật toán"],
+                "time_ms": r["Tốc độ (ms)"],
+                "steps": r["Số bước đi"],
+                "h_start": r["H(Start)"],
+                "h_end": r["H(End)"],
+                "h_history": r["h_history_list"],
+                "success": r["H(End)"] == 0,
+            })
+            
+        print("\n[VẼ BIỂU ĐỒ] Đang tự động tạo các hình ảnh biểu đồ phân tích...")
+        plot_charts(chart_results)
+        save_individual_charts(chart_results)
+    except ImportError as e:
+        print(f"\n[CẢNH BÁO] Không thể load 'chart_analysis': {e}")
 
     # --- Tìm đường đi tốt nhất để trả về ---
     best_algo = None
